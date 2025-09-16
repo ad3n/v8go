@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"testing"
 
-	v8 "github.com/tommie/v8go"
+	v8 "github.com/ad3n/v8go"
 )
 
 func TestVersion(t *testing.T) {
