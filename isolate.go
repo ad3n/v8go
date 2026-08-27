@@ -9,6 +9,7 @@ package v8go
 import "C"
 
 import (
+	"runtime"
 	"sync"
 	"unsafe"
 )
@@ -137,15 +138,16 @@ func (i *Isolate) CompileUnboundScript(
 			panic("On CompileOptions, Mode and CachedData can't both be set")
 		}
 		cOptions.compileOption = C.ScriptCompilerConsumeCodeCache
-		cOptions.cachedData = C.ScriptCompilerCachedData{
-			data:   (*C.uchar)(unsafe.Pointer(&opts.CachedData.Bytes[0])),
-			length: C.int(len(opts.CachedData.Bytes)),
+		cOptions.cachedData.length = C.int(len(opts.CachedData.Bytes))
+		if len(opts.CachedData.Bytes) > 0 {
+			cOptions.cachedData.data = (*C.uchar)(unsafe.Pointer(&opts.CachedData.Bytes[0]))
 		}
 	} else {
 		cOptions.compileOption = C.int(opts.Mode)
 	}
 
 	rtn := C.IsolateCompileUnboundScript(i.ptr, cSource, cOrigin, cOptions)
+	runtime.KeepAlive(opts.CachedData)
 	if rtn.ptr == nil {
 		return nil, newJSError(rtn.error)
 	}

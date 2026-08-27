@@ -9,7 +9,7 @@ func fatalIf(t *testing.T, err error) {
 	}
 }
 
-func recoverPanic(f func()) (recovered interface{}) {
+func recoverPanic(f func()) (recovered any) {
 	defer func() {
 		recovered = recover()
 	}()

@@ -24,7 +24,7 @@ type template struct {
 // The property must be defined either as a primitive value, or a template.
 // If the value passed is a Go supported primitive (string, int32, uint32, int64, uint64, float64, big.Int)
 // then a value will be created and set as the value property.
-func (t *template) Set(name string, val interface{}, attributes ...PropertyAttribute) error {
+func (t *template) Set(name string, val any, attributes ...PropertyAttribute) error {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
@@ -63,7 +63,7 @@ func (t *template) Set(name string, val interface{}, attributes ...PropertyAttri
 // The property must be defined either as a primitive value, or a template.
 // If the value passed is a Go supported primitive (string, int32, uint32, int64, uint64, float64, big.Int)
 // then a value will be created and set as the value property.
-func (t *template) SetSymbol(key *Symbol, val interface{}, attributes ...PropertyAttribute) error {
+func (t *template) SetSymbol(key *Symbol, val any, attributes ...PropertyAttribute) error {
 	var attrs PropertyAttribute
 	for _, a := range attributes {
 		attrs |= a

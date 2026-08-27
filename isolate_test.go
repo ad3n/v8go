@@ -257,7 +257,7 @@ func TestIsolateThrowException(t *testing.T) {
 
 func BenchmarkIsolateInitialization(b *testing.B) {
 	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		vm := v8.NewIsolate()
 		vm.Close() // force disposal of the VM
 	}
@@ -265,7 +265,7 @@ func BenchmarkIsolateInitialization(b *testing.B) {
 
 func BenchmarkIsolateInitAndRun(b *testing.B) {
 	b.ReportAllocs()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		vm := v8.NewIsolate()
 		ctx := v8.NewContext(vm)
 		ctx.RunScript(script, "main.js")
@@ -290,8 +290,8 @@ const script = `
 	};
 `
 
-func makeObject() interface{} {
-	return map[string]interface{}{
+func makeObject() any {
+	return map[string]any{
 		"a": rand.Intn(1000000),
 		"b": "AAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBB",
 	}

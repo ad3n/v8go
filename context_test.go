@@ -156,7 +156,7 @@ func BenchmarkContext(b *testing.B) {
 	b.ReportAllocs()
 	iso := v8.NewIsolate()
 	defer iso.Dispose()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		ctx := v8.NewContext(iso)
 		ctx.RunScript(script, "main.js")
 		str, _ := json.Marshal(makeObject())

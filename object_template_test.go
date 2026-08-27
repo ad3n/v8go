@@ -34,7 +34,7 @@ func TestObjectTemplate(t *testing.T) {
 
 	tests := [...]struct {
 		name  string
-		value interface{}
+		value any
 	}{
 		{"str", "foo"},
 		{"i32", int32(1)},

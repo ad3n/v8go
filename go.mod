@@ -1,6 +1,6 @@
 module github.com/ad3n/v8go
 
-go 1.19
+go 1.26
 
 require (
 	github.com/tommie/v8go/deps/android_amd64 v0.0.0-20250515043113-5dcc98077472

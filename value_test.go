@@ -107,7 +107,7 @@ func TestNewValue(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		input     interface{}
+		input     any
 		predicate string
 	}{
 		{"string", "s\x00s\x00", `str => str === "s\x00s\x00"`},

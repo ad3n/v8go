@@ -62,7 +62,7 @@ func Null(iso *Isolate) *Value {
 //	uint64 -> V8::BigInt
 //	bool -> V8::Boolean
 //	*big.Int -> V8::BigInt
-func NewValue(iso *Isolate, val interface{}) (*Value, error) {
+func NewValue(iso *Isolate, val any) (*Value, error) {
 	if iso == nil {
 		return nil, errors.New("v8go: failed to create new Value: Isolate cannot be <nil>")
 	}
@@ -125,7 +125,7 @@ func NewValue(iso *Isolate, val interface{}) (*Value, error) {
 		bits := v.Bits()
 		count = len(bits)
 
-		words := make([]C.uint64_t, count, count)
+		words := make([]C.uint64_t, count)
 		for idx, word := range bits {
 			words[idx] = C.uint64_t(word)
 		}

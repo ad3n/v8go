@@ -80,7 +80,7 @@ func (e *Exception) Error() string {
 }
 
 // As provides support for errors.As.
-func (e *Exception) As(target interface{}) bool {
+func (e *Exception) As(target any) bool {
 	ep, ok := target.(**Exception)
 	if !ok {
 		return false
