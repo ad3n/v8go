@@ -31,6 +31,16 @@ func TestJSONParse(t *testing.T) {
 	}
 }
 
+func TestJSONParsePreservesNUL(t *testing.T) {
+	ctx := v8.NewContext()
+	defer ctx.Isolate().Dispose()
+	defer ctx.Close()
+
+	if _, err := v8.JSONParse(ctx, "{\"value\":\"a\x00b\"}"); err == nil {
+		t.Fatal("JSON containing an unescaped NUL unexpectedly parsed")
+	}
+}
+
 func TestJSONStringify(t *testing.T) {
 	t.Parallel()
 

@@ -1,8 +1,11 @@
 #include "deps/include/v8-template.h"
 
+#include <cstring>
+
 #include "context-macros.h"
 #include "template.h"
 #include "unbound_script.h"
+#include "utils.h"
 #include "value.h"
 
 using namespace v8;
@@ -85,17 +88,27 @@ int ContextRetainedValueCount(ContextPtr ctx) {
 }
 
 RtnValue RunScript(ContextPtr ctx, const char* source, const char* origin) {
+  return RunScriptWithLength(ctx, source, strlen(source), origin,
+                             strlen(origin));
+}
+
+RtnValue RunScriptWithLength(ContextPtr ctx,
+                             const char* source,
+                             int source_length,
+                             const char* origin,
+                             int origin_length) {
   LOCAL_CONTEXT(ctx);
 
   RtnValue rtn = {};
 
   MaybeLocal<String> maybeSrc =
-      String::NewFromUtf8(iso, source, NewStringType::kNormal);
+      String::NewFromUtf8(iso, source, NewStringType::kNormal, source_length);
   MaybeLocal<String> maybeOgn =
-      String::NewFromUtf8(iso, origin, NewStringType::kNormal);
+      String::NewFromUtf8(iso, origin, NewStringType::kNormal, origin_length);
   Local<String> src, ogn;
   if (!maybeSrc.ToLocal(&src) || !maybeOgn.ToLocal(&ogn)) {
-    rtn.error = ExceptionError(try_catch, iso, local_ctx);
+    rtn.error.msg =
+        CopyString("RangeError: source or origin exceeds V8 string limits");
     return rtn;
   }
 

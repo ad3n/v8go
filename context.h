@@ -52,6 +52,11 @@ extern void ContextFree(ContextPtr ctx);
 extern RtnValue RunScript(ContextPtr ctx_ptr,
                           const char* source,
                           const char* origin);
+extern RtnValue RunScriptWithLength(ContextPtr ctx_ptr,
+                          const char* source,
+                          int source_length,
+                          const char* origin,
+                          int origin_length);
 
 #ifdef __cplusplus
 }  // extern "C"

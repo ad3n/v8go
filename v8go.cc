@@ -13,6 +13,7 @@
 #include "context-macros.h"
 #include "function_template.h"
 #include "isolate-macros.h"
+#include "json.h"
 #include "template-macros.h"
 #include "template.h"
 #include "value-macros.h"
@@ -274,12 +275,21 @@ int TemplateSetAnyTemplate(TemplatePtr ptr,
 /********** Context **********/
 
 RtnValue JSONParse(ContextPtr ctx, const char* str) {
+  return JSONParseWithLength(ctx, str, strlen(str));
+}
+
+RtnValue JSONParseWithLength(ContextPtr ctx,
+                             const char* str,
+                             int str_length) {
   LOCAL_CONTEXT(ctx);
   RtnValue rtn = {};
 
   Local<String> v8Str;
-  if (!String::NewFromUtf8(iso, str, NewStringType::kNormal).ToLocal(&v8Str)) {
-    rtn.error = ExceptionError(try_catch, iso, local_ctx);
+  if (!String::NewFromUtf8(iso, str, NewStringType::kNormal, str_length)
+           .ToLocal(&v8Str)) {
+    rtn.error.msg =
+        CopyString("RangeError: JSON input exceeds V8 string limits");
+    return rtn;
   }
 
   Local<Value> result;

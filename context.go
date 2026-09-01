@@ -4,7 +4,6 @@
 
 package v8go
 
-// #include <stdlib.h>
 // #include "context.h"
 import "C"
 import (
@@ -91,13 +90,24 @@ func (c *Context) RetainedValueCount() int {
 // reference for the script and used in the stack trace if there is an error.
 // error will be of type `JSError` if not nil.
 func (c *Context) RunScript(source string, origin string) (*Value, error) {
-	cSource := C.CString(source)
-	cOrigin := C.CString(origin)
-	defer C.free(unsafe.Pointer(cSource))
-	defer C.free(unsafe.Pointer(cOrigin))
-
-	rtn := C.RunScript(c.ptr, cSource, cOrigin)
+	cSource := cStringData(source)
+	cOrigin := cStringData(origin)
+	rtn := C.RunScriptWithLength(c.ptr, cSource, C.int(len(source)), cOrigin, C.int(len(origin)))
+	runtime.KeepAlive(source)
+	runtime.KeepAlive(origin)
 	return valueResult(c, rtn)
+}
+
+// V8 copies input strings during the cgo call, so passing Go string storage is
+// safe and avoids a C allocation and an additional copy per argument. V8
+// requires a non-nil pointer even for an empty string.
+var emptyStringData byte
+
+func cStringData(s string) *C.char {
+	if len(s) == 0 {
+		return (*C.char)(unsafe.Pointer(&emptyStringData))
+	}
+	return (*C.char)(unsafe.Pointer(unsafe.StringData(s)))
 }
 
 // Global returns the global proxy object.

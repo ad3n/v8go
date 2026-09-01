@@ -39,6 +39,20 @@ func TestContextExec(t *testing.T) {
 	}
 }
 
+func TestContextExecPreservesNUL(t *testing.T) {
+	ctx := v8.NewContext()
+	defer ctx.Isolate().Dispose()
+	defer ctx.Close()
+
+	val, err := ctx.RunScript("'a\\x00b'.length", "nul\\x00origin.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := val.Integer(); got != 3 {
+		t.Fatalf("string length = %d, want 3", got)
+	}
+}
+
 func TestJSExceptions(t *testing.T) {
 	t.Parallel()
 
