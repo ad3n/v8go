@@ -291,6 +291,9 @@ func TestObjectTemplateSetCallAsFunctionHandler(t *testing.T) {
 	ctx.Global().Set("obj", instance)
 
 	res, err := ctx.RunScript(`obj()`, "")
+	if err != nil {
+		t.Fatalf("Error calling object as function: %v", err)
+	}
 	resStr := res.String()
 	if resStr != "42" {
 		t.Errorf(`unexpected result. Expected "42", got: %s`, resStr)

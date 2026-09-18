@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"runtime"
 	"unsafe"
 )
 
@@ -71,9 +72,9 @@ func NewValue(iso *Isolate, val any) (*Value, error) {
 
 	switch v := val.(type) {
 	case string:
-		cstr := C.CString(v)
-		defer C.free(unsafe.Pointer(cstr))
-		rtn := C.NewValueString(iso.ptr, cstr, C.int(len(v)))
+		// NewValueString copies the bytes into V8-owned storage synchronously.
+		rtn := C.NewValueString(iso.ptr, cStringData(v), C.int(len(v)))
+		runtime.KeepAlive(v)
 		return valueResult(nil, rtn)
 	case int32:
 		rtnVal = &Value{

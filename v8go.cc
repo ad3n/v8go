@@ -278,9 +278,7 @@ RtnValue JSONParse(ContextPtr ctx, const char* str) {
   return JSONParseWithLength(ctx, str, strlen(str));
 }
 
-RtnValue JSONParseWithLength(ContextPtr ctx,
-                             const char* str,
-                             int str_length) {
+RtnValue JSONParseWithLength(ContextPtr ctx, const char* str, int str_length) {
   LOCAL_CONTEXT(ctx);
   RtnValue rtn = {};
 
