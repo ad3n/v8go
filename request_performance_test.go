@@ -78,7 +78,7 @@ func runFreshRequest(tb testing.TB, payload, id string, calls int) {
 // These isolate the changed operations within a request. They do not model
 // sharing an isolate or context between requests.
 func BenchmarkRequestBoundary(b *testing.B) {
-	for _, count := range []int{0, 2, 8, 9, 32} {
+	for _, count := range []int{0, 2, 8, 9, 32, 33} {
 		b.Run(fmt.Sprintf("Call/args_%d", count), func(b *testing.B) {
 			ctx := v8.NewContext()
 			defer ctx.Isolate().Dispose()
@@ -106,7 +106,7 @@ func BenchmarkRequestBoundary(b *testing.B) {
 			}
 		})
 	}
-	for _, count := range []int{8, 9} {
+	for _, count := range []int{8, 9, 32, 33} {
 		b.Run(fmt.Sprintf("NewInstance/args_%d", count), func(b *testing.B) {
 			ctx := v8.NewContext()
 			defer ctx.Isolate().Dispose()

@@ -103,7 +103,7 @@ func TestFreshRequestAfterTermination(t *testing.T) {
 }
 
 func TestRequestArgumentBoundaries(t *testing.T) {
-	for _, count := range []int{0, 1, 2, 7, 8, 9, 32, 256} {
+	for _, count := range []int{0, 1, 2, 7, 8, 9, 31, 32, 33, 256} {
 		t.Run(fmt.Sprintf("args_%d", count), func(t *testing.T) {
 			t.Parallel()
 			ctx := v8.NewContext()
