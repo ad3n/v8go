@@ -45,7 +45,7 @@ Raw local observations
 #8 0.660 .
 #8 0.660 ----------------------------------------------------------------------
 #8 0.661 Ran 1 test in 0.215s
-#8 0.661 
+#8 0.661
 #8 0.661 OK
 #8 64.77 # github.com/ad3n/v8go.test
 #8 64.77 /usr/local/go/pkg/tool/linux_amd64/link: running clang++ failed: exit status 1
@@ -98,7 +98,7 @@ Raw local observations
 #8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0x7b2): undefined reference to `__isoc23_strtoul'
 #8 64.77 /usr/bin/ld: type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0xccb): undefined reference to `__isoc23_strtoull'
 #8 64.77 clang: error: linker command failed with exit code 1 (use -v to see invocation)
-#8 64.77 
+#8 64.77
 #8 64.77 FAIL	github.com/ad3n/v8go [build failed]
 #8 64.77 FAIL
 #8 ERROR: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
@@ -111,7 +111,7 @@ Raw local observations
 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0x7b2): undefined reference to `__isoc23_strtoul'
 64.77 /usr/bin/ld: type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0xccb): undefined reference to `__isoc23_strtoull'
 64.77 clang: error: linker command failed with exit code 1 (use -v to see invocation)
-64.77 
+64.77
 64.77 FAIL	github.com/ad3n/v8go [build failed]
 64.77 FAIL
 ------
@@ -120,10 +120,10 @@ Raw local observations
 [0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
 linux-amd64.Dockerfile:29
 --------------------
-  27 |     
+  27 |
   28 |     FROM toolchain AS validate-existing
   29 | >>> RUN sh docker/validate-linux-amd64.sh
-  30 |     
+  30 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
 
@@ -141,7 +141,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 0.848 .
 #10 0.849 ----------------------------------------------------------------------
 #10 0.849 Ran 1 test in 0.269s
-#10 0.849 
+#10 0.849
 #10 0.849 OK
 #10 0.862 + go test . -run ^Test -count=1
 #10 76.73 ok  	github.com/ad3n/v8go	2.518s
@@ -149,7 +149,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 # internal/goexperiment
 #10 77.53 SIGSEGV: segmentation violation
 #10 77.53 PC=0x457750 m=4 sigcode=1 addr=0xeffff7d63eb0
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 0 gp=0x23a06860c1e0 m=4 mp=0x23a068608008 [idle]:
 #10 77.53 runtime.futexwakeup(0x23a0685dd160, 0x0?)
 #10 77.53 	runtime/os_linux.go:86 +0x30 fp=0x23a06861fef8 sp=0x23a06861fea0 pc=0x457750
@@ -161,7 +161,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/mgc.go:1515 +0x45 fp=0x23a06861ffc8 sp=0x23a06861ff90 pc=0x435b65
 #10 77.53 runtime.systemstack(0x0)
 #10 77.53 	runtime/asm_amd64.s:562 +0x4a fp=0x23a06861ffd8 sp=0x23a06861ffc8 pc=0x49ceea
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 35 gp=0x23a06860c780 m=4 mp=0x23a068608008 [running]:
 #10 77.53 runtime.systemstack_switch()
 #10 77.53 	runtime/asm_amd64.s:516 +0x8 fp=0x23a0689d7448 sp=0x23a0689d7438 pc=0x49ce88
@@ -177,7 +177,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d77e8 sp=0x23a0689d77e0 pc=0x49e941
 #10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
 #10 77.53 	runtime/mgc.go:1695 +0x105
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 1 gp=0x23a0685901e0 m=nil [runnable]:
 #10 77.53 runtime.asyncPreempt2()
 #10 77.53 	runtime/preempt.go:320 +0x14 fp=0x23a06861a868 sp=0x23a06861a848 pc=0x45c5f4
@@ -209,7 +209,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/proc.go:290 +0x2d5 fp=0x23a06861bfe0 sp=0x23a06861bf48 pc=0x45dcd5
 #10 77.53 runtime.goexit({})
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a06861bfe8 sp=0x23a06861bfe0 pc=0x49e941
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 2 gp=0x23a068590780 m=nil [force gc (idle)]:
 #10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d8fa8 sp=0x23a0685d8f88 pc=0x4973ce
@@ -221,7 +221,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d8fe8 sp=0x23a0685d8fe0 pc=0x49e941
 #10 77.53 created by runtime.init.7 in goroutine 1
 #10 77.53 	runtime/proc.go:363 +0x1a
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 3 gp=0x23a068590d20 m=nil [runnable]:
 #10 77.53 runtime.goschedIfBusy()
 #10 77.53 	runtime/proc.go:414 +0x28 fp=0x23a0685d9750 sp=0x23a0685d9738 pc=0x45e0a8
@@ -233,7 +233,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d97e8 sp=0x23a0685d97e0 pc=0x49e941
 #10 77.53 created by runtime.gcenable in goroutine 1
 #10 77.53 	runtime/mgc.go:214 +0x66
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 4 gp=0x23a068590f00 m=nil [GC scavenge wait]:
 #10 77.53 runtime.gopark(0x10000?, 0x103a2c0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d9f78 sp=0x23a0685d9f58 pc=0x4973ce
@@ -249,7 +249,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d9fe8 sp=0x23a0685d9fe0 pc=0x49e941
 #10 77.53 created by runtime.gcenable in goroutine 1
 #10 77.53 	runtime/mgc.go:215 +0xa5
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 5 gp=0x23a0685914a0 m=nil [GOMAXPROCS updater (idle)]:
 #10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685da788 sp=0x23a0685da768 pc=0x4973ce
@@ -261,7 +261,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685da7e8 sp=0x23a0685da7e0 pc=0x49e941
 #10 77.53 created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
 #10 77.53 	runtime/proc.go:7083 +0x37
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 6 gp=0x23a068591680 m=nil [finalizer wait]:
 #10 77.53 runtime.gopark(0x46e075?, 0x400000?, 0x70?, 0x86?, 0x433696?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d8620 sp=0x23a0685d8600 pc=0x4973ce
@@ -271,7 +271,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d87e8 sp=0x23a0685d87e0 pc=0x49e941
 #10 77.53 created by runtime.createfing in goroutine 1
 #10 77.53 	runtime/mfinal.go:172 +0x3d
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 17 gp=0x23a068722000 m=nil [cleanup wait]:
 #10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d4768 sp=0x23a0685d4748 pc=0x4973ce
@@ -285,7 +285,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d47e8 sp=0x23a0685d47e0 pc=0x49e941
 #10 77.53 created by runtime.(*cleanupQueue).createGs in goroutine 1
 #10 77.53 	runtime/mcleanup.go:672 +0xa5
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 33 gp=0x23a06860c3c0 m=nil [GC worker (idle)]:
 #10 77.53 runtime.gopark(0x23a0689d0000?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d6730 sp=0x23a0689d6710 pc=0x4973ce
@@ -297,7 +297,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d67e8 sp=0x23a0689d67e0 pc=0x49e941
 #10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
 #10 77.53 	runtime/mgc.go:1695 +0x105
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 34 gp=0x23a06860c5a0 m=nil [GC worker (idle)]:
 #10 77.53 runtime.gopark(0x16fed44bca6c?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d6f30 sp=0x23a0689d6f10 pc=0x4973ce
@@ -309,7 +309,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d6fe8 sp=0x23a0689d6fe0 pc=0x49e941
 #10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
 #10 77.53 	runtime/mgc.go:1695 +0x105
-#10 77.53 
+#10 77.53
 #10 77.53 goroutine 36 gp=0x23a06860c960 m=nil [GC worker (idle)]:
 #10 77.53 runtime.gopark(0x16fed44f9150?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
 #10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d7f30 sp=0x23a0689d7f10 pc=0x4973ce
@@ -321,7 +321,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d7fe8 sp=0x23a0689d7fe0 pc=0x49e941
 #10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
 #10 77.53 	runtime/mgc.go:1695 +0x105
-#10 77.53 
+#10 77.53
 #10 77.53 rax    0x1
 #10 77.53 rbx    0x1
 #10 77.53 rcx    0x23a0685dd160
@@ -361,10 +361,10 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 ------
 linux-amd64.Dockerfile:33
 --------------------
-  31 |     
+  31 |
   32 |     FROM toolchain AS validate-existing
   33 | >>> RUN sh docker/validate-linux-amd64.sh
-  34 |     
+  34 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
 
@@ -382,7 +382,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 0.661 .
 #10 0.662 ----------------------------------------------------------------------
 #10 0.662 Ran 1 test in 0.231s
-#10 0.662 
+#10 0.662
 #10 0.662 OK
 #10 0.672 + go test . -run ^Test -count=1
 #10 97.23 ok  	github.com/ad3n/v8go	2.461s
@@ -423,14 +423,14 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 #10 393.1     #16 0x00000086cc89  (/tmp/go-build34641493/b001/v8go.test+0x86cc89) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
 #10 393.1     #17 0x0000008604ff  (/tmp/go-build34641493/b001/v8go.test+0x8604ff) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
 #10 393.1     #18 0x0000005ac843  (/tmp/go-build34641493/b001/v8go.test+0x5ac843) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
-#10 393.1 
+#10 393.1
 #10 393.1 ==8361==Register values:
-#10 393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003  
-#10 393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0  
-#10 393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008  
-#10 393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021  
+#10 393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003
+#10 393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0
+#10 393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008
+#10 393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021
 #10 393.1 AddressSanitizer can not provide additional info.
-#10 393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee) 
+#10 393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
 #10 393.1 ==8361==ABORTING
 #10 393.1 FAIL	github.com/ad3n/v8go	0.209s
 #10 393.1 FAIL
@@ -438,40 +438,40 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-
 ------
  > [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh:
 393.1 ==8361==Register values:
-393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003  
-393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0  
-393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008  
-393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021  
+393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003
+393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0
+393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008
+393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021
 393.1 AddressSanitizer can not provide additional info.
-393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee) 
+393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
 393.1 ==8361==ABORTING
 393.1 FAIL	github.com/ad3n/v8go	0.209s
 393.1 FAIL
 ------
 linux-amd64.Dockerfile:40
 --------------------
-  38 |     
+  38 |
   39 |     FROM toolchain AS validate-existing
   40 | >>> RUN sh docker/validate-linux-amd64.sh
-  41 |     
+  41 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
 
 === linux-amd64-source.txt ===
 #9 4.880 hint: of your new repositories, which will suppress this warning, call:
-#9 4.880 hint: 
+#9 4.880 hint:
 #9 4.880 hint: 	git config --global init.defaultBranch <name>
-#9 4.880 hint: 
+#9 4.880 hint:
 #9 4.880 hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
 #9 4.880 hint: 'development'. The just-created branch can be renamed via this command:
-#9 4.880 hint: 
+#9 4.880 hint:
 #9 4.880 hint: 	git branch -m <name>
 #9 4.887 Initialized empty Git repository in /src/deps/v8/.git/
 #9 33.04 From https://chromium.googlesource.com/v8/v8
 #9 33.04  * branch              5297e56d91816747d539abca52b578e5832135f0 -> FETCH_HEAD
 #9 33.97 HEAD is now at 5297e56d Version 13.6.233.10
 #9 34.82 WARNING: Your metrics.cfg file was invalid or nonexistent. A new one will be created.
-#9 501.4 
+#9 501.4
 #9 501.4 v8/third_party/llvm-build/Release+Asserts:Linux_x64/llvmobjdump-llvmorg-21-init-5118-g52cd27e6-5.tar.xz (ERROR)
 #9 501.4 ----------------------------------------
 #9 501.4 [0:00:38] Started.
@@ -545,16 +545,16 @@ linux-amd64.Dockerfile:18
   25 | >>>     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)" \
   26 | >>>     && git -C deps/v8 checkout --detach FETCH_HEAD \
   27 | >>>     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64
-  28 |     
+  28 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
 
 === linux-amd64-source-python312.txt ===
 #14 4.802 hint: 	git config --global init.defaultBranch <name>
-#14 4.802 hint: 
+#14 4.802 hint:
 #14 4.802 hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
 #14 4.802 hint: 'development'. The just-created branch can be renamed via this command:
-#14 4.802 hint: 
+#14 4.802 hint:
 #14 4.802 hint: 	git branch -m <name>
 #14 4.807 Initialized empty Git repository in /src/deps/v8/.git/
 #14 36.16 From https://chromium.googlesource.com/v8/v8
@@ -563,7 +563,7 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TO
 #14 37.22 deps/build.py > /usr/local/bin/python3 /src/deps/depot_tools/gclient.py sync --delete_unversioned_trees --no-history --spec solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]
 #14 37.22 target_os = ['linux']
 #14 38.34 WARNING: Your metrics.cfg file was invalid or nonexistent. A new one will be created.
-#14 257.9 
+#14 257.9
 #14 257.9 ________ running 'cipd ensure -log-level error -root . -ensure-file /tmp/tmpjqmx582w.ensure' in '.'
 #14 257.9 [P3709 09:22:50.589 client.go:2179 E] [unzip 1/4] Failed to install gn/gn/linux-amd64 in "v8/buildtools/linux64": adding files to the site root: rename /src/deps/.cipd/pkgs/0/UTJwaB9q6x0uGRzZbhtZtqZ3if7ohrngjsCM4utG_VgC/gn /src/deps/v8/buildtools/linux64/gn: invalid cross-device link
 #14 258.7 [P3709 09:22:51.342 client.go:2179 E] [unzip 3/4] Failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
@@ -584,9 +584,9 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TO
 #14 281.5   failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
 #14 281.5   failed to install infra/build/siso/linux-amd64 in "v8/third_party/siso": adding files to the site root: rename /src/deps/.cipd/pkgs/2/WBFVMVdmo2i-nZvGl_5-xj_lIVo-2JeepZUL6twMeocC/siso /src/deps/v8/third_party/siso/siso: invalid cross-device link
 #14 281.5   failed to install infra/rbe/client/linux-amd64 in "v8/buildtools/reclient": adding files to the site root: rename /src/deps/.cipd/pkgs/3/uSrt0_v70X7LhC3_N3jVU9CRyMwiELpYm7jVnkCevkIC/CHANGELOG.md /src/deps/v8/buildtools/reclient/CHANGELOG.md: invalid cross-device link
-#14 281.5 
-#14 281.5 
-#14 281.5 
+#14 281.5
+#14 281.5
+#14 281.5
 #14 281.5 Warnings:
 #14 281.5 git update is recommended.
 #14 281.5 Installed git version is 2.39.5;
@@ -637,13 +637,13 @@ linux-amd64.Dockerfile:24
   36 | >>>     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)" \
   37 | >>>     && git -C deps/v8 checkout --detach FETCH_HEAD \
   38 | >>>     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64
-  39 |     
+  39 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
 
 === linux-amd64-source-final.txt ===
 #14 10.15 hint: 'development'. The just-created branch can be renamed via this command:
-#14 10.15 hint: 
+#14 10.15 hint:
 #14 10.15 hint: 	git branch -m <name>
 #14 10.16 Initialized empty Git repository in /native/deps/v8/.git/
 #14 206.6 From https://chromium.googlesource.com/v8/v8
@@ -671,15 +671,15 @@ ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TO
 #14 497.0 ________ running 'python3 buildtools/reclient_cfgs/configure_reclient_cfgs.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance --reproxy_cfg_template reproxy.cfg.template --rewrapper_cfg_project  --skip_remoteexec_cfg_fetch' in './v8'
 #14 497.0 generate reproxy.cfg using /native/deps/v8/buildtools/reclient_cfgs/reproxy_cfg_templates/reproxy.cfg.template
 #14 497.1 ________ running 'python3 build/config/siso/configure_siso.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance' in './v8'
-#14 497.1 
-#14 497.1 
+#14 497.1
+#14 497.1
 #14 497.1 Warnings:
 #14 497.1 git update is recommended.
 #14 497.1 Installed git version is 2.39.5;
 #14 497.1 depot_tools recommends version 2.46.0 or later.
 #14 497.1 Disable this warning by setting the GCLIENT_SUPPRESS_GIT_VERSION_WARNING
 #14 497.1 environment variable to 1.
-#14 497.1 deps/build.py > /native/deps/depot_tools/gn gen /native/deps/.build/linux_amd64 --args= is_debug=false is_clang=true target_os="linux" target_cpu="x64" v8_target_cpu="x64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true 
+#14 497.1 deps/build.py > /native/deps/depot_tools/gn gen /native/deps/.build/linux_amd64 --args= is_debug=false is_clang=true target_os="linux" target_cpu="x64" v8_target_cpu="x64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true
 #14 497.3 python3_bin_reldir.txt not found. need to initialize depot_tools by
 #14 497.3 running gclient, update_depot_tools or ensure_bootstrap.
 #14 497.3 Traceback (most recent call last):
@@ -729,6 +729,6 @@ linux-amd64.Dockerfile:26
   43 | >>>     && rm -rf /src/deps/linux_amd64 /src/deps/include \
   44 | >>>     && cp -a deps/linux_amd64 deps/include /src/deps/ \
   45 | >>>     && cp cgo_linux_amd64.go /src/
-  46 |     
+  46 |
 --------------------
 ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && mkdir -p /native/deps     && cp go.mod /native/go.mod     && cp deps/build.py deps/build_common.py deps/update_cgo.py deps/v8_hash /native/deps/     && cd /native     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs \"$BUILD_JOBS\" --os linux --arch amd64     && rm -rf /src/deps/linux_amd64 /src/deps/include     && cp -a deps/linux_amd64 deps/include /src/deps/     && cp cgo_linux_amd64.go /src/" did not complete successfully: exit code: 1
