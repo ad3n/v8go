@@ -16,6 +16,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--verbose', '-v', default=False, action='store_true')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--ccache', default=False, action='store_true')
+parser.add_argument('--offline', action='store_true',
+                    help='Skip gclient sync; source, dependencies and toolchain must already exist.')
+parser.add_argument('--jobs', type=int, default=4,
+                    help='Maximum number of parallel compiler jobs (default: 4).')
 parser.add_argument('--clang', action='store_true')
 parser.add_argument('--no-clang', dest='clang', action='store_false')
 parser.set_defaults(clang=None)
@@ -34,6 +38,10 @@ parser.add_argument(
     choices=['android', 'ios', 'linux', 'darwin', 'windows'],
     default=platform.system().lower())
 args = parser.parse_args()
+if sys.version_info < (3, 12):
+    parser.error('Python 3.12 or newer is required by depot_tools')
+if args.jobs < 1:
+    parser.error('--jobs must be positive')
 
 deps_path = os.path.dirname(os.path.realpath(__file__))
 v8_path = os.path.join(deps_path, "v8")
@@ -61,6 +69,8 @@ gclient_sln = [
         "deps_file"   : "DEPS",
         "managed"     : False,
         "custom_deps" : get_custom_deps(),
+        # Test tooling virtualenvs are not needed to compile v8_monolith.
+        "custom_hooks": [{"name": "vpython3_common"}],
         "custom_vars": {
             "build_for_node" : True,
         },
@@ -81,6 +91,9 @@ symbol_level=%s
 strip_debug_info=%s
 is_component_build=false
 v8_monolithic=true
+v8_enable_pointer_compression=true
+v8_enable_31bit_smis_on_64bit_arch=true
+v8_enable_sandbox=true
 v8_use_external_startup_data=false
 treat_warnings_as_errors=false
 v8_embedder_string="-v8go"
@@ -96,8 +109,9 @@ def v8deps():
     spec = "solutions = %s\n" % gclient_sln
     spec += "target_os = [%r]" % (v8_os(),)
     env = os.environ.copy()
+    env["DEPOT_TOOLS_UPDATE"] = "0"
     env["PATH"] = tools_path + os.pathsep + env["PATH"]
-    subprocess_check_call(["gclient", "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+    subprocess_check_call([sys.executable, os.path.join(tools_path, "gclient.py"), "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
                         cwd=deps_path,
                         env=env)
 
@@ -288,22 +302,37 @@ def allocate_disjoint_files(ar_files, case_sensitive=True):
 
     return ar_file_groups
 
+def native_build_tools():
+    host = platform.system().lower()
+    gn_directory = {'linux': 'linux64', 'darwin': 'mac', 'windows': 'win'}.get(host)
+    if gn_directory is None:
+        raise RuntimeError('Unsupported build host: ' + host)
+
+    suffix = '.exe' if host == 'windows' else ''
+    return (
+        os.path.join(v8_path, 'buildtools', gn_directory, 'gn' + suffix),
+        os.path.join(v8_path, 'third_party', 'ninja', 'ninja' + suffix),
+    )
+
 def main():
-    v8deps()
+    if not args.offline:
+        v8deps()
     if is_windows:
         apply_mingw_patches()
 
-    gn_path = os.path.join(tools_path, "gn")
-    assert(os.path.exists(gn_path))
-    ninja_path = os.path.join(tools_path, "ninja" + (".exe" if is_windows else ""))
-    assert(os.path.exists(ninja_path))
+    gn_path, ninja_path = native_build_tools()
+    for tool in (gn_path, ninja_path):
+        if not os.access(tool, os.X_OK):
+            raise RuntimeError('Missing native build tool: ' + tool + '; provision dependencies before --offline')
 
     build_path = os.path.join(deps_path, ".build", os_arch())
 
     gnargs = build_gn_args()
 
     subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
-    subprocess_check_call([ninja_path, "-v", "-C", build_path, "v8_monolith"], cwd=v8_path)
+    subprocess_check_call([ninja_path, "-v", "-j", str(args.jobs), "-C", build_path, "v8_monolith"], cwd=v8_path)
+
+    subprocess_check_call([sys.executable, os.path.join(deps_path, "build_common.py")])
 
     dest_path = os.path.join(deps_path, os_arch())
     dest_obj_dn = os.path.join(dest_path, "obj")
@@ -315,6 +344,8 @@ def main():
     finally:
         if os.path.exists(dest_obj_dn):
             shutil.rmtree(dest_obj_dn)
+
+    subprocess_check_call([sys.executable, os.path.join(deps_path, "update_cgo.py")])
 
 if __name__ == "__main__":
     main()

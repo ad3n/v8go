@@ -265,6 +265,77 @@ This project also aims to keep up-to-date with the latest (stable) release of V8
 1) Build the executable to debug, using `go build` for commands or `go test -c` for tests. You may need to add the `-ldflags=-compressdwarf=false` option to disable debug information compression so this information can be read by the debugger (e.g. lldb that comes with Xcode v12.5.1, the latest Xcode released at the time of writing)
 1) Run the executable with a debugger (e.g. `lldb -- ./v8go.test -test.run TestThatIsCrashing`, `run` to start execution then use `bt` to print a bracktrace after it breaks on a crash), since backtraces printed by Go or V8 don't currently include line number information.
 
+### Building V8 locally
+
+The Go package links static V8 archives from `deps/<os>_<arch>` directly, without
+architecture-specific modules from tommie. Rebuild the archives from the pinned
+V8 source before deploying a new native build:
+
+```sh
+git submodule update --init --recursive
+python3 deps/build.py --jobs 4
+GOPROXY=off GOSUMDB=off go test . -run '^Test' -count=1
+```
+
+Python 3.12 or newer is required. depot_tools is pinned to a revision that
+supports the GCS dependencies in this V8 revision; the build invokes gclient
+with that Python interpreter and disables automatic depot_tools updates.
+
+The V8 submodule revision must match `deps/v8_hash`. The build script refreshes
+headers from that source and regenerates linker flags after building. Its GN
+configuration enables the pointer compression, 31-bit Smis and sandbox required
+by the cgo wrapper. macOS requires a full Xcode installation selected through
+`xcode-select`; Command Line Tools alone cannot configure this V8 revision.
+
+The first native build downloads Chromium dependencies and toolchains. Once those
+are provisioned, use `python3 deps/build.py --offline --jobs 4` to skip dependency
+synchronization. For a fully offline build, also provision the toolchain and any
+bootstrap caches used by depot_tools beforehand.
+
+This is a source-checkout build workflow. The architecture directories remain
+nested modules and their archives are excluded from the root Go module zip.
+Applications must build this checkout and use a local replacement, for example
+`go mod edit -replace github.com/ad3n/v8go=/absolute/path/to/v8go`. A downloaded
+root module alone does not contain the native archives. Build each deployment
+OS/architecture separately; changing the V8 revision also requires regenerating
+matching headers and running the native safety checks.
+
+### Docker Linux amd64 validation
+
+Production Linux amd64 must be tested explicitly. The cgo files select the
+`deps/linux_amd64` archives and use a linker archive group on Linux. Use a
+Debian/glibc build environment matching the runtime image; Alpine/musl requires
+separate compatibility validation.
+
+To compile V8 and run the correctness, race, cgo pointer and leak checks inside
+an amd64 Docker image:
+
+```sh
+docker build --platform linux/amd64 --progress plain \
+  --build-arg DEPOT_TOOLS_REVISION="$(git -C deps/depot_tools rev-parse HEAD)" \
+  --target validate-source -f docker/linux-amd64.Dockerfile .
+```
+
+To export the source-built archives, matching headers and linker configuration
+into a directory for an application build, use `--target native-artifacts
+--output type=local,dest=/absolute/path/to/native-output` with the same arguments.
+This target depends on the passing safety checks. Keep headers and archives
+from the same build together.
+
+The `GO_IMAGE` build argument (or `docker_go_image` input on a manual CI run)
+selects the build environment, for example
+`--build-arg GO_IMAGE=golang:1.26-trixie`. The default is Debian Bookworm. Match
+the runtime's libc baseline when compiling V8. The checked-in legacy amd64
+archives fail to link on Bookworm because they require `__isoc23_*` symbols from
+a newer glibc; they must be rebuilt for Bookworm.
+
+To validate the existing local amd64 archives without rebuilding V8, use
+`--target validate-existing`. The validation script rejects a non-amd64 Linux
+container or disabled cgo. The `Docker Linux amd64 source build and safety
+checks` CI job uses a native amd64 runner. On an arm64 host, Docker may emulate
+amd64; emulator limitations must not be treated as passing native sanitizer
+coverage. Performance comparisons must run on the same native amd64 host.
+
 ### Upgrading the V8 binaries
 
 We have the [v8upgrade](https://github.com/ad3n/v8go/.github/workflow/v8upgrade.yml) workflow.
@@ -276,13 +347,10 @@ The [v8build](https://github.com/ad3n/v8go/.github/workflow/v8build.yml) workflo
 It is triggered by the `v8upgrade` workflow, or being run manually.
 Each architecture is a separate job, storing build artifacts that are picked up by the Commit job.
 This job updates the master branch.
-Then it runs `syncsubdeps`.
+It regenerates the local linker flags from each architecture’s `libmanifest`.
 
-The [syncsubdeps](https://github.com/ad3n/v8go/.github/workflow/syncsubdeps.yml) workflow updates the `go.mod` file to point to the new commit.
-Each architecture in `deps/` is its own Go module.
-This is needed to work around size constraints in Go module handling due to the large libv8 files.
-But we still want them to be consistent across builds, something that needs to happen after the built files have been committed.
-Once this is done, the upgrade is complete.
+The generated cgo files link the static libraries in the local checkout directly.
+No architecture-specific Go module is downloaded.
 
 Releasing the library is a matter of running the [release](https://github.com/ad3n/v8go/.github/workflow/release.yml) workflow.
 It reads `CHANGELOG.md`, creates a Git tag and a GitHub release.

@@ -1,0 +1,266 @@
+Local V8 validation — 2026-10-01
+Status: INCOMPLETE for a fresh source-compiled V8 binary.
+Host: darwin/arm64, Apple M3 Pro, Go 1.27.1.
+
+Changes
+- Root cgo files link native archives in the local checkout directly.
+- Removed all root Go module requirements on tommie; go list -m all contains only github.com/ad3n/v8go.
+- Generator also includes CoreFoundation on Darwin, fixing native linker failures observed in leakcheck and the test subpackage.
+- Source build refreshes headers and linker manifests, limits compiler concurrency, and supports --offline.
+- Explicit GN pointer compression, 31-bit Smis and sandbox flags match the wrapper macros.
+- depot_tools advanced from 5e5802d7a244d01039076113b3d91b953105c58b to 9656a8db85ab195c2f169cd53f29b7fbccb969b8: the older revision cannot parse GCS dependencies in this V8 DEPS file.
+- gclient uses the invoking Python >=3.11 interpreter; automatic tool updates are disabled. The optional vpython test-tool environment hook is excluded, avoiding unavailable numpy wheels.
+- Upgrade workflow no longer adds external architecture Go modules.
+
+Commands and final outcomes
+PASS: git submodule update --init --recursive
+PASS: python3 -m unittest discover -s deps -p 'test_*.py' (local linker generation, Linux/Android archive groups, Darwin CoreFoundation, repeated generation)
+PASS: go test . -run '^Test' -count=1
+PASS: go test -race . -run '^Test' -count=1
+PASS: GOEXPERIMENT=cgocheck2 go test . -run '^Test' -count=1
+PASS: GOPROXY=off GOSUMDB=off go test --tags leakcheck . -run '^Test' -count=1
+PASS: GOPROXY=off GOSUMDB=off go test ./... (network fetch example requires network; no Go dependency downloads)
+PASS: GOPROXY=off GOSUMDB=off go vet ./...
+PASS: gofmt on changed generated cgo files and isolate_test.go
+PASS: git diff --check
+PASS: Python AST syntax validation for build.py, update_cgo.py, test_update_cgo.py
+PASS: python3 deps/build.py --help
+PASS: python3 deps/build.py --jobs 0 rejects invalid concurrency via argparse, exit 2.
+NOT CLEAN: betteralign -apply ./... and betteralign ./... reported existing CPUProfileNode pointer layout (120 pointer bytes vs 64). The apply rewrite was reverted because it changes unrelated runtime code/public struct layout outside this task. Final betteralign exits 3 with that diagnostic; changed files introduce no structs.
+N/A: go generate formatting check; no C/C++ source changes.
+UNAVAILABLE: local YAML parser; workflow execution must validate YAML/actions on CI.
+BLOCKED: python3 deps/build.py --verbose --os darwin --arch arm64. Dependency sync succeeded after tooling fixes; GN failed on xcodebuild -version because only Command Line Tools are installed.
+BLOCKED: python3 deps/build.py --offline --verbose --os darwin --arch arm64: same Xcode requirement.
+No source-compiled candidate archive was produced. Existing local archives were not modified.
+
+Benchmark
+Command, both configurations: go test . -run '^$' -bench '^BenchmarkIsolateInitAndRun$' -benchmem -benchtime=2s -count=5
+The same production workload, setup, machine and build mode were used. Benchmark was updated only to report isolates/op; workload unchanged.
+benchstat unavailable; medians of all five final samples:
+Baseline: 527457 ns/op, 883 B/op, 26 allocs/op, 1895.89 ops/s.
+Local linking: 528045 ns/op, 883 B/op, 26 allocs/op, 1893.78 ops/s.
+Latency difference: 0.111%.
+No performance improvement claim. Initial candidate measurements varied during downloads; all samples are retained below. Final candidate was rerun after downloads/build attempts/other tests stopped.
+The archives used by baseline and candidate are byte-identical (hashes below); this comparison validates linking configuration only, NOT performance of rebuilt V8.
+Go benchmem cannot observe C/C++ allocations. Native allocation behavior was inspected for this change: no native allocation/ownership code changed; native archive bytes are identical. Leakcheck reported no leaks for the tested wrapper paths, but the prebuilt V8 archives are not fully sanitizer-instrumented.
+
+Ownership and compatibility
+No Go/C/C++ boundary function or C ABI changed. Existing native allocations, retained V8 handles, context/isolate ownership, releases, termination behavior, pointer retention and Go-pointer rules are unchanged. No new retained pointers or buffers exist. Isolate/context cleanup remains exercised by production benchmarks and tests. Existing documented panic contracts are retained; no unexpected panic/crash/race/cgo violation appeared in passing suites.
+Exported Go API remains unchanged. Build/distribution behavior intentionally requires a source checkout and local module replacement: nested architecture-module archives are excluded from the downloaded root Go module zip. See README for setup. Offline Go linking succeeds once local archives exist; initial source/toolchain provisioning still requires external sources or a preprovisioned mirror/cache.
+
+Outstanding completion gates
+- Install/select full Xcode and rerun source build, then ALL safety tests and five benchmark samples against its actual new archives.
+- CI Local V8 Build Validation / source-build on ubuntu-latest linux/amd64 and macos-14 darwin/arm64 must execute (workflow added, not run from this session).
+- Other architecture builds remain covered by V8 Build matrix; no cross-platform passing result claimed locally.
+- Linux Leak Check and source-build leakcheck job must validate LeakSanitizer on supported Linux. Full native bounds/UAF instrumentation of the V8 binary itself is not claimed by the wrapper's leakcheck build.
+- The existing betteralign diagnostic remains; no unrelated struct optimization included.
+
+Raw outputs
+
+=== baseline.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/v8go
+cpu: Apple M3 Pro
+BenchmarkIsolateInitAndRun-12    	    3894	    527457 ns/op	     890 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4558	    544519 ns/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    3903	    529822 ns/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4720	    523350 ns/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4801	    524439 ns/op	     883 B/op	      26 allocs/op
+PASS
+ok  	github.com/ad3n/v8go	12.456s
+
+
+=== candidate.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/v8go
+cpu: Apple M3 Pro
+BenchmarkIsolateInitAndRun-12    	    3496	    606300 ns/op	     890 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4207	   1150855 ns/op	     884 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    3151	    724781 ns/op	     881 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4028	    592350 ns/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4290	    559184 ns/op	     883 B/op	      26 allocs/op
+PASS
+ok  	github.com/ad3n/v8go	14.910s
+
+
+=== candidate-final.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+goos: darwin
+goarch: arm64
+pkg: github.com/ad3n/v8go
+cpu: Apple M3 Pro
+BenchmarkIsolateInitAndRun-12    	    3829	    529355 ns/op	         1.000 isolates/op	     890 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4530	    527075 ns/op	         1.000 isolates/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4285	    529089 ns/op	         1.000 isolates/op	     882 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4639	    526745 ns/op	         1.000 isolates/op	     883 B/op	      26 allocs/op
+BenchmarkIsolateInitAndRun-12    	    4544	    528045 ns/op	         1.000 isolates/op	     883 B/op	      26 allocs/op
+PASS
+ok  	github.com/ad3n/v8go	12.130s
+
+
+=== archive-hashes.txt ===
+4e9deb3b30967daad58c71e0097462f9f6dd0329d5bb7d616e7dc363d70ee367  deps/darwin_arm64/libv8-0.a
+88f3c6280a9846afd7e478ed22fdd944d2228d020e5aebda50a5c15e7ea8161e  deps/darwin_arm64/libv8-1.a
+4e9deb3b30967daad58c71e0097462f9f6dd0329d5bb7d616e7dc363d70ee367  /Users/aden/go/pkg/mod/github.com/tommie/v8go/deps/darwin_arm64@v0.0.0-20250515043113-5dcc98077472/libv8-0.a
+88f3c6280a9846afd7e478ed22fdd944d2228d020e5aebda50a5c15e7ea8161e  /Users/aden/go/pkg/mod/github.com/tommie/v8go/deps/darwin_arm64@v0.0.0-20250515043113-5dcc98077472/libv8-1.a
+
+
+=== tests-final.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ok  	github.com/ad3n/v8go	4.805s
+
+
+=== race-final.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ok  	github.com/ad3n/v8go	2.921s
+
+
+=== cgocheck2-final.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ok  	github.com/ad3n/v8go	2.239s
+
+
+=== leakcheck-final.txt ===
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ok  	github.com/ad3n/v8go	2.087s
+
+
+=== all-tests-final.txt ===
+# github.com/ad3n/v8go/test.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+# github.com/ad3n/v8go.test
+ld: warning: duplicate -rpath '/Users/aden/nwrfcsdk/lib' ignored
+ok  	github.com/ad3n/v8go	2.681s
+?   	github.com/ad3n/v8go/deps/include	[no test files]
+?   	github.com/ad3n/v8go/deps/include/cppgc	[no test files]
+?   	github.com/ad3n/v8go/deps/include/libplatform	[no test files]
+ok  	github.com/ad3n/v8go/test	(cached)
+
+
+=== vet-final.txt ===
+
+
+=== betteralign-final.txt ===
+/Users/aden/Projects/v8go/cpuprofilenode.go:7:21: struct with 120 pointer bytes could be 64 (lowers GC scan-work estimate)
+
+
+=== native-build-final.txt ===
+deps/build.py > /opt/homebrew/opt/python@3.14/bin/python3.14 /Users/aden/Projects/v8go/deps/depot_tools/gclient.py sync --delete_unversioned_trees --no-history --spec solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]
+target_os = ['mac']
+________ running 'python3 third_party/depot_tools/update_depot_tools_toggle.py --disable' in './v8'
+________ running 'python3 build/landmines.py --landmine-scripts tools/get_landmines.py' in './v8'
+________ running 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth --bucket chromium-browser-clang -s tools/clang/dsymutil/bin/dsymutil.arm64.sha1 -o tools/clang/dsymutil/bin/dsymutil' in './v8'
+________ running 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth -u --bucket v8-wasm-spec-tests -s test/wasm-spec-tests/tests.tar.gz.sha1' in './v8'
+________ running 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth -u --bucket v8-wasm-spec-tests -s test/wasm-js/tests.tar.gz.sha1' in './v8'
+________ running 'python3 build/mac_toolchain.py' in './v8'
+Skipping Mac toolchain installation for mac
+________ running 'python3 build/util/lastchange.py -o build/util/LASTCHANGE' in './v8'
+________ running 'python3 buildtools/reclient_cfgs/configure_reclient_cfgs.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance --reproxy_cfg_template reproxy.cfg.template --rewrapper_cfg_project  --skip_remoteexec_cfg_fetch' in './v8'
+generate reproxy.cfg using /Users/aden/Projects/v8go/deps/v8/buildtools/reclient_cfgs/reproxy_cfg_templates/reproxy.cfg.template
+________ running 'python3 build/config/siso/configure_siso.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance' in './v8'
+deps/build.py > /Users/aden/Projects/v8go/deps/depot_tools/gn gen /Users/aden/Projects/v8go/deps/.build/darwin_arm64 --args= is_debug=false is_clang=true target_os="mac" target_cpu="arm64" v8_target_cpu="arm64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true 
+ERROR at //build/config/mac/mac_sdk.gni:133:19: Script returned non-zero exit code.
+_mac_sdk_result = exec_script(script_name, sdk_info_args, "scope")
+                  ^----------
+Current dir: /Users/aden/Projects/v8go/deps/.build/darwin_arm64/
+Command: python3 /Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py macosx
+Returned 1.
+stderr:
+
+xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance
+Traceback (most recent call last):
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 167, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 152, in main
+    FillXcodeVersion(settings, args.developer_dir)
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 61, in FillXcodeVersion
+    lines = subprocess.check_output(['xcodebuild',
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/depot_tools/bootstrap-2@3.11.8.chromium.35_bin/python3/lib/python3.11/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/depot_tools/bootstrap-2@3.11.8.chromium.35_bin/python3/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['xcodebuild', '-version']' returned non-zero exit status 1.
+
+See //build/gn_logs.gni:32:3: whence it was imported.
+  import("//build/config/mac/mac_sdk.gni")
+  ^--------------------------------------
+See //BUILD.gn:8143:3: whence it was imported.
+  import("//build/gn_logs.gni")
+  ^---------------------------
+Traceback (most recent call last):
+  File "/Users/aden/Projects/v8go/deps/build.py", line 339, in <module>
+    main()
+    ~~~~^^
+  File "/Users/aden/Projects/v8go/deps/build.py", line 320, in main
+    subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/build.py", line 150, in subprocess_check_call
+    subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 420, in check_call
+    raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['/Users/aden/Projects/v8go/deps/depot_tools/gn', 'gen', '/Users/aden/Projects/v8go/deps/.build/darwin_arm64', '--args= is_debug=false is_clang=true target_os="mac" target_cpu="arm64" v8_target_cpu="arm64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true ']' returned non-zero exit status 1.
+
+
+=== native-offline-build.txt ===
+deps/build.py > /Users/aden/Projects/v8go/deps/depot_tools/gn gen /Users/aden/Projects/v8go/deps/.build/darwin_arm64 --args= is_debug=false is_clang=true target_os="mac" target_cpu="arm64" v8_target_cpu="arm64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true 
+ERROR at //build/config/mac/mac_sdk.gni:133:19: Script returned non-zero exit code.
+_mac_sdk_result = exec_script(script_name, sdk_info_args, "scope")
+                  ^----------
+Current dir: /Users/aden/Projects/v8go/deps/.build/darwin_arm64/
+Command: python3 /Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py macosx
+Returned 1.
+stderr:
+
+xcode-select: error: tool 'xcodebuild' requires Xcode, but active developer directory '/Library/Developer/CommandLineTools' is a command line tools instance
+Traceback (most recent call last):
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 167, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 152, in main
+    FillXcodeVersion(settings, args.developer_dir)
+  File "/Users/aden/Projects/v8go/deps/v8/build/config/apple/sdk_info.py", line 61, in FillXcodeVersion
+    lines = subprocess.check_output(['xcodebuild',
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/depot_tools/bootstrap-2@3.11.8.chromium.35_bin/python3/lib/python3.11/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/depot_tools/bootstrap-2@3.11.8.chromium.35_bin/python3/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['xcodebuild', '-version']' returned non-zero exit status 1.
+
+See //build/gn_logs.gni:32:3: whence it was imported.
+  import("//build/config/mac/mac_sdk.gni")
+  ^--------------------------------------
+See //BUILD.gn:8143:3: whence it was imported.
+  import("//build/gn_logs.gni")
+  ^---------------------------
+Traceback (most recent call last):
+  File "/Users/aden/Projects/v8go/deps/build.py", line 334, in <module>
+    main()
+    ~~~~^^
+  File "/Users/aden/Projects/v8go/deps/build.py", line 315, in main
+    subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aden/Projects/v8go/deps/build.py", line 145, in subprocess_check_call
+    subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/subprocess.py", line 420, in check_call
+    raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['/Users/aden/Projects/v8go/deps/depot_tools/gn', 'gen', '/Users/aden/Projects/v8go/deps/.build/darwin_arm64', '--args= is_debug=false is_clang=true target_os="mac" target_cpu="arm64" v8_target_cpu="arm64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true ']' returned non-zero exit status 1.
+

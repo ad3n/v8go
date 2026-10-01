@@ -4,6 +4,7 @@ package linux_amd64
 
 // #cgo LDFLAGS: -pthread -L${SRCDIR}
 // #cgo LDFLAGS: -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -Wl,--end-group
+// #cgo darwin LDFLAGS: -framework CoreFoundation
 // #cgo libgcompat LDFLAGS: -lgcompat
 // #cgo linux LDFLAGS: -ldl
 import "C"

@@ -1,0 +1,14 @@
+.git
+deps/v8
+deps/depot_tools
+deps/.build
+deps/.cipd
+deps/.gclient*
+deps/.gcs_entries
+deps/__pycache__
+deps/android_*
+deps/darwin_*
+deps/linux_arm64
+validation
+go.work
+go.work.sum

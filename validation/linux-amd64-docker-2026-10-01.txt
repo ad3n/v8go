@@ -1,0 +1,734 @@
+Linux amd64 Docker validation — 2026-10-01
+Status: NOT production-approved; native CI safety gate still required.
+
+Target evidence
+Docker daemon: Linux arm64, 6,197,440,512 bytes RAM; amd64 containers are emulated.
+Container checks verified uname=x86_64, GOOS=linux, GOARCH=amd64, CGO_ENABLED=1.
+
+PASS on golang:1.26-trixie / Linux amd64 with existing local V8 archives and TEST_GOMAXPROCS=2:
+- python3 -m unittest discover -s deps -p 'test_*.py'
+- go test . -run '^Test' -count=1
+- go test -race . -run '^Test' -count=1
+- GOEXPERIMENT=cgocheck2 go test . -run '^Test' -count=1
+- go test ./...
+- go vet ./...
+FAIL: go test --tags leakcheck . -run '^Test' -count=1, AddressSanitizer SEGV in emulated amd64. No passing leak/sanitizer result is claimed.
+The initial unrestricted compiler also segfaulted while compiling the standard Go package internal/goexperiment for -race, before running V8. Limiting GOMAXPROCS allowed that race check to pass. The sanitizer failure is not proven to be caused solely by emulation and remains a blocker pending native amd64 CI.
+
+FAIL on golang:1.26-bookworm with legacy checked-in amd64 archives:
+Linker could not resolve __isoc23_strtoul / __isoc23_strtoull and related newer-glibc symbols. Therefore existing archives must not be deployed to Bookworm without recompiling V8 against that libc baseline.
+
+Docker source build corrections
+- Python 3.12 is now the minimum for the pinned depot_tools: stock Bookworm Python 3.11 lacks TarFile.extractall(filter=...). The earlier local report's Python 3.11 statement is superseded.
+- Docker supplies Python 3.12 and compiler sanitizer runtimes.
+- Source and CIPD staging use one cache filesystem, avoiding EXDEV during installation. Cache is scoped by Go/base image, locked, and uses two compiler jobs by default.
+- GN and Ninja are invoked as the native binaries downloaded into the V8 checkout. The depot_tools wrappers require an uninitialized python3_bin_reldir.txt on a fresh image; those wrappers are no longer used. A regression test covers Linux, macOS and Windows host tool paths.
+- Source build copies fresh archives, headers and linker configuration together into the application build checkout.
+- native-artifacts export depends on validate-source succeeding; sanitizer failures are not bypassed.
+
+Commands added for production
+Docker Linux amd64 source build and safety checks job in .github/workflows/local-v8.yml runs on native ubuntu-latest. It supports GO_IMAGE / docker_go_image for the selected libc baseline.
+The branch codex/local-v8-amd64 is authorized for push to trigger this workflow. Master will not be modified.
+
+PASS locally: python3 -m unittest discover -s deps -p 'test_*.py' (2 regression tests after tool-path fix)
+PASS: sh -n docker/validate-linux-amd64.sh
+PASS: git diff --check
+Benchmark: N/A for this follow-up's Docker, CI and build-tool changes; no Go/C/C++ runtime function was changed and no performance claim is made. Earlier same-machine baseline/candidate linking samples are retained in local-v8-2026-10-01.txt. Emulated numbers must not be compared with native production numbers.
+Ownership: no new Go/C/C++ retained pointers, allocations or handles; exported Go API and C ABI unchanged. Local build distribution still requires a checkout/local replacement. Existing native libraries are not fully ASan-instrumented.
+
+Outstanding: native Docker source rebuild and all safety checks, especially leakcheck, must pass before production approval. Source rebuild attempts have not yet produced validated archives. Production base-image detail is still awaiting the user's answer.
+
+Raw local observations
+
+=== linux-amd64-docker-build.txt ===
+#8 [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh
+#8 0.660 .
+#8 0.660 ----------------------------------------------------------------------
+#8 0.661 Ran 1 test in 0.215s
+#8 0.661 
+#8 0.661 OK
+#8 64.77 # github.com/ad3n/v8go.test
+#8 64.77 /usr/local/go/pkg/tool/linux_amd64/link: running clang++ failed: exit status 1
+#8 64.77 /usr/bin/clang++ -m64 -s -Wl,--build-id=0x7804887ec5c89f08d99e82ac397270dd0ae4fad3 -o $WORK/b001/v8go.test -Wl,--export-dynamic-symbol=_cgo_panic -Wl,--export-dynamic-symbol=_cgo_topofstack -Wl,--export-dynamic-symbol=crosscall2 -Wl,--export-dynamic-symbol=goContext -Wl,--export-dynamic-symbol=goFunctionCallback -Wl,--export-dynamic-symbol=goHandleConsoleAPIMessageCallback -Qunused-arguments -Wl,--compress-debug-sections=zlib /tmp/go-link-4090607684/go.o /tmp/go-link-4090607684/000000.o /tmp/go-link-4090607684/000001.o /tmp/go-link-4090607684/000002.o /tmp/go-link-4090607684/000003.o /tmp/go-link-4090607684/000004.o /tmp/go-link-4090607684/000005.o /tmp/go-link-4090607684/000006.o /tmp/go-link-4090607684/000007.o /tmp/go-link-4090607684/000008.o /tmp/go-link-4090607684/000009.o /tmp/go-link-4090607684/000010.o /tmp/go-link-4090607684/000011.o /tmp/go-link-4090607684/000012.o /tmp/go-link-4090607684/000013.o /tmp/go-link-4090607684/000014.o /tmp/go-link-4090607684/000015.o /tmp/go-link-4090607684/000016.o /tmp/go-link-4090607684/000017.o /tmp/go-link-4090607684/000018.o /tmp/go-link-4090607684/000019.o /tmp/go-link-4090607684/000020.o /tmp/go-link-4090607684/000021.o /tmp/go-link-4090607684/000022.o /tmp/go-link-4090607684/000023.o /tmp/go-link-4090607684/000024.o /tmp/go-link-4090607684/000025.o /tmp/go-link-4090607684/000026.o /tmp/go-link-4090607684/000027.o /tmp/go-link-4090607684/000028.o /tmp/go-link-4090607684/000029.o /tmp/go-link-4090607684/000030.o /tmp/go-link-4090607684/000031.o /tmp/go-link-4090607684/000032.o /tmp/go-link-4090607684/000033.o /tmp/go-link-4090607684/000034.o /tmp/go-link-4090607684/000035.o /tmp/go-link-4090607684/000036.o /tmp/go-link-4090607684/000037.o /tmp/go-link-4090607684/000038.o /tmp/go-link-4090607684/000039.o /tmp/go-link-4090607684/000040.o /tmp/go-link-4090607684/000041.o /tmp/go-link-4090607684/000042.o /tmp/go-link-4090607684/000043.o /tmp/go-link-4090607684/000044.o /tmp/go-link-4090607684/000045.o /tmp/go-link-4090607684/000046.o /tmp/go-link-4090607684/000047.o /tmp/go-link-4090607684/000048.o /tmp/go-link-4090607684/000049.o /tmp/go-link-4090607684/000050.o /tmp/go-link-4090607684/000051.o /tmp/go-link-4090607684/000052.o /tmp/go-link-4090607684/000053.o /tmp/go-link-4090607684/000054.o -O2 -g -pthread -L/src/deps/linux_amd64 -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -Wl,--end-group -ldl -O2 -g -lpthread -O2 -g -lresolv -no-pie
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(205.flags.o): in function `v8::internal::FlagList::SetFlagsFromCommandLine(int*, char**, bool, v8::internal::FlagList::HelpOptions)':
+#8 64.77 flags.cc:(.text._ZN2v88internal8FlagList23SetFlagsFromCommandLineEPiPPcbNS1_11HelpOptionsE+0x337): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: flags.cc:(.text._ZN2v88internal8FlagList23SetFlagsFromCommandLineEPiPPcbNS1_11HelpOptionsE+0x4e1): undefined reference to `__isoc23_strtoll'
+#8 64.77 /usr/bin/ld: flags.cc:(.text._ZN2v88internal8FlagList23SetFlagsFromCommandLineEPiPPcbNS1_11HelpOptionsE+0x6a9): undefined reference to `__isoc23_strtoll'
+#8 64.77 /usr/bin/ld: flags.cc:(.text._ZN2v88internal8FlagList23SetFlagsFromCommandLineEPiPPcbNS1_11HelpOptionsE+0x719): undefined reference to `__isoc23_strtoll'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(56.platform-linux.o): in function `v8::base::OS::GetFirstFreeMemoryRangeWithin(unsigned long, unsigned long, unsigned long, unsigned long)':
+#8 64.77 platform-linux.cc:(.text._ZN2v84base2OS29GetFirstFreeMemoryRangeWithinEmmmm+0x85): undefined reference to `__isoc23_fscanf'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(56.platform-linux.o): in function `v8::base::MemoryRegion::FromMapsLine(char const*)':
+#8 64.77 platform-linux.cc:(.text._ZN2v84base12MemoryRegion12FromMapsLineEPKc+0xbb): undefined reference to `__isoc23_sscanf'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(661.sysinfo.o): in function `absl::base_internal::ReadLongFromFile(char const*, long*) [clone .constprop.0]':
+#8 64.77 sysinfo.cc:(.text._ZN4absl13base_internalL16ReadLongFromFileEPKcPl.constprop.0+0xb0): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(936.plurrule.o): in function `icu_74::PluralRuleParser::getNumberValue(icu_74::UnicodeString const&)':
+#8 64.77 plurrule.cpp:(.text._ZN6icu_7416PluralRuleParser14getNumberValueERKNS_13UnicodeStringE+0x5e): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(936.plurrule.o): in function `icu_74::FixedDecimal::decimals(double)':
+#8 64.77 plurrule.cpp:(.text._ZN6icu_7412FixedDecimal8decimalsEd+0xd6): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-0.a(1506.string-16.o): in function `v8_inspector::String16::toInteger64(bool*) const':
+#8 64.77 string-16.cc:(.text._ZNK12v8_inspector8String1611toInteger64EPb+0x96): undefined reference to `__isoc23_strtoll'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(500.sort-builtins.o): in function `v8::internal::BuiltinsSorter::ProcessBuiltinDensityLineInfo(std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >&, std::unordered_map<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, v8::internal::Builtin, std::hash<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::equal_to<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, v8::internal::Builtin> > >&)':
+#8 64.77 sort-builtins.cc:(.text._ZN2v88internal14BuiltinsSorter29ProcessBuiltinDensityLineInfoERNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEERSt13unordered_mapINS2_12basic_stringIcS5_S6_EENS0_7BuiltinESt4hashISB_ESt8equal_toISB_ESaISt4pairIKSB_SC_EEE+0xd8): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(500.sort-builtins.o): in function `v8::internal::BuiltinsSorter::ProcessBlockCountLineInfo(std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >&, std::unordered_map<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, v8::internal::Builtin, std::hash<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::equal_to<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, v8::internal::Builtin> > >&)':
+#8 64.77 sort-builtins.cc:(.text._ZN2v88internal14BuiltinsSorter25ProcessBlockCountLineInfoERNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEERSt13unordered_mapINS2_12basic_stringIcS5_S6_EENS0_7BuiltinESt4hashISB_ESt8equal_toISB_ESaISt4pairIKSB_SC_EEE+0x109): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: sort-builtins.cc:(.text._ZN2v88internal14BuiltinsSorter25ProcessBlockCountLineInfoERNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEERSt13unordered_mapINS2_12basic_stringIcS5_S6_EENS0_7BuiltinESt4hashISB_ESt8equal_toISB_ESaISt4pairIKSB_SC_EEE+0x15f): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(60.default-thread-isolated-allocator.o): in function `(anonymous namespace)::KernelHasPkruFix()':
+#8 64.77 default-thread-isolated-allocator.cc:(.text._ZN12_GLOBAL__N_116KernelHasPkruFixEv+0x54): undefined reference to `__isoc23_sscanf'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(952.reldtfmt.o): in function `icu_74::(anonymous namespace)::RelDateFmtDataSink::put(char const*, icu_74::ResourceValue&, signed char, UErrorCode&)':
+#8 64.77 reldtfmt.cpp:(.text._ZN6icu_7412_GLOBAL__N_118RelDateFmtDataSink3putEPKcRNS_13ResourceValueEaR10UErrorCode+0x92): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-2.a(858.erarules.o): in function `icu_74::EraRules::createInstance(char const*, signed char, UErrorCode&)':
+#8 64.77 erarules.cpp:(.text._ZN6icu_748EraRules14createInstanceEPKcaR10UErrorCode+0x12b): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-0.a(1047.cstring.o): in function `T_CString_stringToInteger_74':
+#8 64.77 cstring.cpp:(.text.T_CString_stringToInteger_74+0x13): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-0.a(1065.locdispnames.o): in function `_getStringOrCopyKey(char const*, char const*, char const*, char const*, char const*, char const*, char16_t*, int, UErrorCode*)':
+#8 64.77 locdispnames.cpp:(.text._ZL19_getStringOrCopyKeyPKcS0_S0_S0_S0_S0_PDsiP10UErrorCode+0x83): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-0.a(1087.putil.o): in function `u_versionFromString_74':
+#8 64.77 putil.cpp:(.text.u_versionFromString_74+0x3f): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-0.a(1199.uresdata.o): in function `res_findResource_74':
+#8 64.77 uresdata.cpp:(.text.res_findResource_74+0x97): undefined reference to `__isoc23_strtol'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `std::optional<std::vector<unsigned int, std::allocator<unsigned int> > > v8::internal::compiler::turboshaft::TypeParser::ParseSetElements<unsigned int>()':
+#8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsIjEESt8optionalISt6vectorIT_SaIS7_EEEv[_ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsIjEESt8optionalISt6vectorIT_SaIS7_EEEv]+0x13b): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `std::optional<unsigned int> v8::internal::compiler::turboshaft::TypeParser::ReadValue<unsigned int>()':
+#8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueIjEESt8optionalIT_Ev[_ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueIjEESt8optionalIT_Ev]+0x8f): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `std::optional<std::vector<unsigned long, std::allocator<unsigned long> > > v8::internal::compiler::turboshaft::TypeParser::ParseSetElements<unsigned long>()':
+#8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsImEESt8optionalISt6vectorIT_SaIS7_EEEv[_ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsImEESt8optionalISt6vectorIT_SaIS7_EEEv]+0x13b): undefined reference to `__isoc23_strtoull'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `std::optional<unsigned long> v8::internal::compiler::turboshaft::TypeParser::ReadValue<unsigned long>()':
+#8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueImEESt8optionalIT_Ev[_ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueImEESt8optionalIT_Ev]+0x8f): undefined reference to `__isoc23_strtoull'
+#8 64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `v8::internal::compiler::turboshaft::TypeParser::ParseType()':
+#8 64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0x7b2): undefined reference to `__isoc23_strtoul'
+#8 64.77 /usr/bin/ld: type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0xccb): undefined reference to `__isoc23_strtoull'
+#8 64.77 clang: error: linker command failed with exit code 1 (use -v to see invocation)
+#8 64.77 
+#8 64.77 FAIL	github.com/ad3n/v8go [build failed]
+#8 64.77 FAIL
+#8 ERROR: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+------
+ > [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh:
+64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsImEESt8optionalISt6vectorIT_SaIS7_EEEv[_ZN2v88internal8compiler10turboshaft10TypeParser16ParseSetElementsImEESt8optionalISt6vectorIT_SaIS7_EEEv]+0x13b): undefined reference to `__isoc23_strtoull'
+64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `std::optional<unsigned long> v8::internal::compiler::turboshaft::TypeParser::ReadValue<unsigned long>()':
+64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueImEESt8optionalIT_Ev[_ZN2v88internal8compiler10turboshaft10TypeParser9ReadValueImEESt8optionalIT_Ev]+0x8f): undefined reference to `__isoc23_strtoull'
+64.77 /usr/bin/ld: /src/deps/linux_amd64/libv8-1.a(1702.type-parser.o): in function `v8::internal::compiler::turboshaft::TypeParser::ParseType()':
+64.77 type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0x7b2): undefined reference to `__isoc23_strtoul'
+64.77 /usr/bin/ld: type-parser.cc:(.text._ZN2v88internal8compiler10turboshaft10TypeParser9ParseTypeEv+0xccb): undefined reference to `__isoc23_strtoull'
+64.77 clang: error: linker command failed with exit code 1 (use -v to see invocation)
+64.77 
+64.77 FAIL	github.com/ad3n/v8go [build failed]
+64.77 FAIL
+------
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - FromPlatformFlagConstDisallowed: FROM --platform flag should not use constant value "linux/amd64" (line 1)
+linux-amd64.Dockerfile:29
+--------------------
+  27 |     
+  28 |     FROM toolchain AS validate-existing
+  29 | >>> RUN sh docker/validate-linux-amd64.sh
+  30 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+
+=== linux-amd64-trixie.txt ===
+#10 [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh
+#10 0.193 + uname -m
+#10 0.207 + test x86_64 = x86_64
+#10 0.209 + go env GOOS
+#10 0.293 + test linux = linux
+#10 0.294 + go env GOARCH
+#10 0.347 + test amd64 = amd64
+#10 0.348 + go env CGO_ENABLED
+#10 0.410 + test 1 = 1
+#10 0.410 + python3 -m unittest discover -s deps -p test_*.py
+#10 0.848 .
+#10 0.849 ----------------------------------------------------------------------
+#10 0.849 Ran 1 test in 0.269s
+#10 0.849 
+#10 0.849 OK
+#10 0.862 + go test . -run ^Test -count=1
+#10 76.73 ok  	github.com/ad3n/v8go	2.518s
+#10 76.81 + go test -race . -run ^Test -count=1
+#10 77.53 # internal/goexperiment
+#10 77.53 SIGSEGV: segmentation violation
+#10 77.53 PC=0x457750 m=4 sigcode=1 addr=0xeffff7d63eb0
+#10 77.53 
+#10 77.53 goroutine 0 gp=0x23a06860c1e0 m=4 mp=0x23a068608008 [idle]:
+#10 77.53 runtime.futexwakeup(0x23a0685dd160, 0x0?)
+#10 77.53 	runtime/os_linux.go:86 +0x30 fp=0x23a06861fef8 sp=0x23a06861fea0 pc=0x457750
+#10 77.53 runtime.notewakeup(0x23a000000004?)
+#10 77.53 	runtime/lock_futex.go:32 +0x25 fp=0x23a06861ff20 sp=0x23a06861fef8 pc=0x4248c5
+#10 77.53 runtime.startTheWorldWithSema(0x16fed4ecf16d, {0xb8?, 0x62c3?, 0x2cb1150d?, 0x6abe2328?})
+#10 77.53 	runtime/proc.go:1796 +0x13d fp=0x23a06861ff90 sp=0x23a06861ff20 pc=0x4614fd
+#10 77.53 runtime.gcMarkTermination.func3()
+#10 77.53 	runtime/mgc.go:1515 +0x45 fp=0x23a06861ffc8 sp=0x23a06861ff90 pc=0x435b65
+#10 77.53 runtime.systemstack(0x0)
+#10 77.53 	runtime/asm_amd64.s:562 +0x4a fp=0x23a06861ffd8 sp=0x23a06861ffc8 pc=0x49ceea
+#10 77.53 
+#10 77.53 goroutine 35 gp=0x23a06860c780 m=4 mp=0x23a068608008 [running]:
+#10 77.53 runtime.systemstack_switch()
+#10 77.53 	runtime/asm_amd64.s:516 +0x8 fp=0x23a0689d7448 sp=0x23a0689d7438 pc=0x49ce88
+#10 77.53 runtime.gcMarkTermination({0xc0?, 0x16fed4e14898?, 0x4?, 0x4?})
+#10 77.53 	runtime/mgc.go:1500 +0x565 fp=0x23a0689d7690 sp=0x23a0689d7448 pc=0x4350a5
+#10 77.53 runtime.gcMarkDone()
+#10 77.53 	runtime/mgc.go:1173 +0x37e fp=0x23a0689d7730 sp=0x23a0689d7690 pc=0x4344be
+#10 77.53 runtime.gcBgMarkWorker(0x23a0689d0000)
+#10 77.53 	runtime/mgc.go:1912 +0x2c8 fp=0x23a0689d77c8 sp=0x23a0689d7730 pc=0x4360e8
+#10 77.53 runtime.gcBgMarkStartWorkers.gowrap1()
+#10 77.53 	runtime/mgc.go:1695 +0x17 fp=0x23a0689d77e0 sp=0x23a0689d77c8 pc=0x435df7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d77e8 sp=0x23a0689d77e0 pc=0x49e941
+#10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
+#10 77.53 	runtime/mgc.go:1695 +0x105
+#10 77.53 
+#10 77.53 goroutine 1 gp=0x23a0685901e0 m=nil [runnable]:
+#10 77.53 runtime.asyncPreempt2()
+#10 77.53 	runtime/preempt.go:320 +0x14 fp=0x23a06861a868 sp=0x23a06861a848 pc=0x45c5f4
+#10 77.53 runtime.asyncPreempt()
+#10 77.53 	runtime/preempt_amd64.s:124 +0x28b fp=0x23a06861a8f0 sp=0x23a06861a868 pc=0x49fa6b
+#10 77.53 cmd/compile/internal/types2.(*Checker).recordScope(0x0, {0x23a068705260, 0x23a068a2a0a0}, 0x107f130)
+#10 77.53 	cmd/compile/internal/types2/recording.go:169 fp=0x23a06861a8f8 sp=0x23a06861a8f0 pc=0xe63da0
+#10 77.53 cmd/compile/internal/types2.(*Checker).collectObjects(0x23a068754400)
+#10 77.53 	cmd/compile/internal/types2/resolver.go:233 +0x1949 fp=0x23a06861aff8 sp=0x23a06861a8f8 pc=0xe66749
+#10 77.53 cmd/compile/internal/types2.(*Checker).checkFiles(0x23a068754400, {0x23a06877e0b0?, 0x23a0685dc808?, 0x23a068754400?})
+#10 77.53 	cmd/compile/internal/types2/check.go:500 +0x208 fp=0x23a06861b108 sp=0x23a06861aff8 pc=0xe1db88
+#10 77.53 cmd/compile/internal/types2.(*Checker).Files(0x104b9e0?, {0x23a06877e0b0?, 0x0?, 0x0?})
+#10 77.53 	cmd/compile/internal/types2/check.go:466 +0x75 fp=0x23a06861b170 sp=0x23a06861b108 pc=0xe1d8d5
+#10 77.53 cmd/compile/internal/types2.(*Config).Check(0x23a06870e230, {0x7ffffffff73c?, 0x23a06859e077?}, {0x23a06877e0b0, 0x15, 0x15}, 0x23a068710900)
+#10 77.53 	cmd/compile/internal/types2/api.go:484 +0x19d fp=0x23a06861b1d8 sp=0x23a06861b170 pc=0xe07bdd
+#10 77.53 cmd/compile/internal/noder.checkFiles({0x0, {0x0, 0x0}}, {0x23a0686b2210, 0x15, 0x5?})
+#10 77.53 	cmd/compile/internal/noder/irgen.go:95 +0x64a fp=0x23a06861b468 sp=0x23a06861b1d8 pc=0xeaa10a
+#10 77.53 cmd/compile/internal/noder.writePkgStub({0x0?, {0x0?, 0x0?}}, {0x23a0686b2210, 0x15, 0x15})
+#10 77.53 	cmd/compile/internal/noder/unified.go:318 +0x6a fp=0x23a06861b738 sp=0x23a06861b468 pc=0xed05ea
+#10 77.53 cmd/compile/internal/noder.unified({0x0?, {0x0?, 0x0?}}, {0x23a0686b2210?, 0xf7ab40?, 0x199bf20?})
+#10 77.53 	cmd/compile/internal/noder/unified.go:194 +0xb6 fp=0x23a06861b8b0 sp=0x23a06861b738 pc=0xecfcf6
+#10 77.53 cmd/compile/internal/noder.LoadPackage({0x23a0685ae428, 0x15, 0x15})
+#10 77.53 	cmd/compile/internal/noder/noder.go:77 +0x509 fp=0x23a06861b9d8 sp=0x23a06861b8b0 pc=0xeaf7a9
+#10 77.53 cmd/compile/internal/gc.Main(0x10bf970)
+#10 77.53 	cmd/compile/internal/gc/main.go:216 +0xce5 fp=0x23a06861bee8 sp=0x23a06861b9d8 pc=0xf0d9e5
+#10 77.53 main.main()
+#10 77.53 	cmd/compile/main.go:57 +0xf9 fp=0x23a06861bf48 sp=0x23a06861bee8 pc=0xf3a079
+#10 77.53 runtime.main()
+#10 77.53 	runtime/proc.go:290 +0x2d5 fp=0x23a06861bfe0 sp=0x23a06861bf48 pc=0x45dcd5
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a06861bfe8 sp=0x23a06861bfe0 pc=0x49e941
+#10 77.53 
+#10 77.53 goroutine 2 gp=0x23a068590780 m=nil [force gc (idle)]:
+#10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d8fa8 sp=0x23a0685d8f88 pc=0x4973ce
+#10 77.53 runtime.goparkunlock(...)
+#10 77.53 	runtime/proc.go:468
+#10 77.53 runtime.forcegchelper()
+#10 77.53 	runtime/proc.go:375 +0xb3 fp=0x23a0685d8fe0 sp=0x23a0685d8fa8 pc=0x45dff3
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d8fe8 sp=0x23a0685d8fe0 pc=0x49e941
+#10 77.53 created by runtime.init.7 in goroutine 1
+#10 77.53 	runtime/proc.go:363 +0x1a
+#10 77.53 
+#10 77.53 goroutine 3 gp=0x23a068590d20 m=nil [runnable]:
+#10 77.53 runtime.goschedIfBusy()
+#10 77.53 	runtime/proc.go:414 +0x28 fp=0x23a0685d9750 sp=0x23a0685d9738 pc=0x45e0a8
+#10 77.53 runtime.bgsweep(0x23a0685f8000)
+#10 77.53 	runtime/mgcsweep.go:320 +0x338 fp=0x23a0685d97c8 sp=0x23a0685d9750 pc=0x443938
+#10 77.53 runtime.gcenable.gowrap1()
+#10 77.53 	runtime/mgc.go:214 +0x17 fp=0x23a0685d97e0 sp=0x23a0685d97c8 pc=0x4332f7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d97e8 sp=0x23a0685d97e0 pc=0x49e941
+#10 77.53 created by runtime.gcenable in goroutine 1
+#10 77.53 	runtime/mgc.go:214 +0x66
+#10 77.53 
+#10 77.53 goroutine 4 gp=0x23a068590f00 m=nil [GC scavenge wait]:
+#10 77.53 runtime.gopark(0x10000?, 0x103a2c0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d9f78 sp=0x23a0685d9f58 pc=0x4973ce
+#10 77.53 runtime.goparkunlock(...)
+#10 77.53 	runtime/proc.go:468
+#10 77.53 runtime.(*scavengerState).park(0x1ab29c0)
+#10 77.53 	runtime/mgcscavenge.go:425 +0x49 fp=0x23a0685d9fa8 sp=0x23a0685d9f78 pc=0x440f29
+#10 77.53 runtime.bgscavenge(0x23a0685f8000)
+#10 77.53 	runtime/mgcscavenge.go:658 +0x59 fp=0x23a0685d9fc8 sp=0x23a0685d9fa8 pc=0x4414b9
+#10 77.53 runtime.gcenable.gowrap2()
+#10 77.53 	runtime/mgc.go:215 +0x17 fp=0x23a0685d9fe0 sp=0x23a0685d9fc8 pc=0x4332b7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d9fe8 sp=0x23a0685d9fe0 pc=0x49e941
+#10 77.53 created by runtime.gcenable in goroutine 1
+#10 77.53 	runtime/mgc.go:215 +0xa5
+#10 77.53 
+#10 77.53 goroutine 5 gp=0x23a0685914a0 m=nil [GOMAXPROCS updater (idle)]:
+#10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685da788 sp=0x23a0685da768 pc=0x4973ce
+#10 77.53 runtime.goparkunlock(...)
+#10 77.53 	runtime/proc.go:468
+#10 77.53 runtime.updateMaxProcsGoroutine()
+#10 77.53 	runtime/proc.go:7095 +0xe7 fp=0x23a0685da7e0 sp=0x23a0685da788 pc=0x46d0c7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685da7e8 sp=0x23a0685da7e0 pc=0x49e941
+#10 77.53 created by runtime.defaultGOMAXPROCSUpdateEnable in goroutine 1
+#10 77.53 	runtime/proc.go:7083 +0x37
+#10 77.53 
+#10 77.53 goroutine 6 gp=0x23a068591680 m=nil [finalizer wait]:
+#10 77.53 runtime.gopark(0x46e075?, 0x400000?, 0x70?, 0x86?, 0x433696?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d8620 sp=0x23a0685d8600 pc=0x4973ce
+#10 77.53 runtime.runFinalizers()
+#10 77.53 	runtime/mfinal.go:210 +0x107 fp=0x23a0685d87e0 sp=0x23a0685d8620 pc=0x4320e7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d87e8 sp=0x23a0685d87e0 pc=0x49e941
+#10 77.53 created by runtime.createfing in goroutine 1
+#10 77.53 	runtime/mfinal.go:172 +0x3d
+#10 77.53 
+#10 77.53 goroutine 17 gp=0x23a068722000 m=nil [cleanup wait]:
+#10 77.53 runtime.gopark(0x0?, 0x0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0685d4768 sp=0x23a0685d4748 pc=0x4973ce
+#10 77.53 runtime.goparkunlock(...)
+#10 77.53 	runtime/proc.go:468
+#10 77.53 runtime.(*cleanupQueue).dequeue(0x1ab2d40)
+#10 77.53 	runtime/mcleanup.go:522 +0xd4 fp=0x23a0685d47a0 sp=0x23a0685d4768 pc=0x42e654
+#10 77.53 runtime.runCleanups()
+#10 77.53 	runtime/mcleanup.go:718 +0x45 fp=0x23a0685d47e0 sp=0x23a0685d47a0 pc=0x42ecc5
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0685d47e8 sp=0x23a0685d47e0 pc=0x49e941
+#10 77.53 created by runtime.(*cleanupQueue).createGs in goroutine 1
+#10 77.53 	runtime/mcleanup.go:672 +0xa5
+#10 77.53 
+#10 77.53 goroutine 33 gp=0x23a06860c3c0 m=nil [GC worker (idle)]:
+#10 77.53 runtime.gopark(0x23a0689d0000?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d6730 sp=0x23a0689d6710 pc=0x4973ce
+#10 77.53 runtime.gcBgMarkWorker(0x23a0689d0000)
+#10 77.53 	runtime/mgc.go:1791 +0xee fp=0x23a0689d67c8 sp=0x23a0689d6730 pc=0x435f0e
+#10 77.53 runtime.gcBgMarkStartWorkers.gowrap1()
+#10 77.53 	runtime/mgc.go:1695 +0x17 fp=0x23a0689d67e0 sp=0x23a0689d67c8 pc=0x435df7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d67e8 sp=0x23a0689d67e0 pc=0x49e941
+#10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
+#10 77.53 	runtime/mgc.go:1695 +0x105
+#10 77.53 
+#10 77.53 goroutine 34 gp=0x23a06860c5a0 m=nil [GC worker (idle)]:
+#10 77.53 runtime.gopark(0x16fed44bca6c?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d6f30 sp=0x23a0689d6f10 pc=0x4973ce
+#10 77.53 runtime.gcBgMarkWorker(0x23a0689d0000)
+#10 77.53 	runtime/mgc.go:1791 +0xee fp=0x23a0689d6fc8 sp=0x23a0689d6f30 pc=0x435f0e
+#10 77.53 runtime.gcBgMarkStartWorkers.gowrap1()
+#10 77.53 	runtime/mgc.go:1695 +0x17 fp=0x23a0689d6fe0 sp=0x23a0689d6fc8 pc=0x435df7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d6fe8 sp=0x23a0689d6fe0 pc=0x49e941
+#10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
+#10 77.53 	runtime/mgc.go:1695 +0x105
+#10 77.53 
+#10 77.53 goroutine 36 gp=0x23a06860c960 m=nil [GC worker (idle)]:
+#10 77.53 runtime.gopark(0x16fed44f9150?, 0x10c4cf0?, 0x0?, 0x0?, 0x0?)
+#10 77.53 	runtime/proc.go:462 +0xce fp=0x23a0689d7f30 sp=0x23a0689d7f10 pc=0x4973ce
+#10 77.53 runtime.gcBgMarkWorker(0x23a0689d0000)
+#10 77.53 	runtime/mgc.go:1791 +0xee fp=0x23a0689d7fc8 sp=0x23a0689d7f30 pc=0x435f0e
+#10 77.53 runtime.gcBgMarkStartWorkers.gowrap1()
+#10 77.53 	runtime/mgc.go:1695 +0x17 fp=0x23a0689d7fe0 sp=0x23a0689d7fc8 pc=0x435df7
+#10 77.53 runtime.goexit({})
+#10 77.53 	runtime/asm_amd64.s:1771 +0x1 fp=0x23a0689d7fe8 sp=0x23a0689d7fe0 pc=0x49e941
+#10 77.53 created by runtime.gcBgMarkStartWorkers in goroutine 1
+#10 77.53 	runtime/mgc.go:1695 +0x105
+#10 77.53 
+#10 77.53 rax    0x1
+#10 77.53 rbx    0x1
+#10 77.53 rcx    0x23a0685dd160
+#10 77.53 rdx    0x1
+#10 77.53 rdi    0x23a0685dd160
+#10 77.53 rsi    0x81
+#10 77.53 rbp    0x23a06861fee8
+#10 77.53 rsp    0x23a06861fea0
+#10 77.53 r8     0x0
+#10 77.53 r9     0x0
+#10 77.53 r10    0x0
+#10 77.53 r11    0x1ab5dc0
+#10 77.53 r12    0x12
+#10 77.53 r13    0x23a0686f8000
+#10 77.53 r14    0x23a06860c1e0
+#10 77.53 r15    0x12
+#10 77.53 rip    0x457750
+#10 77.53 rflags 0x206
+#10 77.53 cs     0x33
+#10 77.53 fs     0x0
+#10 77.53 gs     0x0
+#10 81.89 FAIL	github.com/ad3n/v8go [build failed]
+#10 81.89 FAIL
+#10 ERROR: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+------
+ > [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh:
+77.53 r13    0x23a0686f8000
+77.53 r14    0x23a06860c1e0
+77.53 r15    0x12
+77.53 rip    0x457750
+77.53 rflags 0x206
+77.53 cs     0x33
+77.53 fs     0x0
+77.53 gs     0x0
+81.89 FAIL	github.com/ad3n/v8go [build failed]
+81.89 FAIL
+------
+linux-amd64.Dockerfile:33
+--------------------
+  31 |     
+  32 |     FROM toolchain AS validate-existing
+  33 | >>> RUN sh docker/validate-linux-amd64.sh
+  34 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+
+=== linux-amd64-trixie-limited.txt ===
+#10 [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh
+#10 0.108 + uname -m
+#10 0.121 + test x86_64 = x86_64
+#10 0.121 + go env GOOS
+#10 0.179 + test linux = linux
+#10 0.179 + go env GOARCH
+#10 0.233 + test amd64 = amd64
+#10 0.233 + go env CGO_ENABLED
+#10 0.280 + test 1 = 1
+#10 0.281 + python3 -m unittest discover -s deps -p test_*.py
+#10 0.661 .
+#10 0.662 ----------------------------------------------------------------------
+#10 0.662 Ran 1 test in 0.231s
+#10 0.662 
+#10 0.662 OK
+#10 0.672 + go test . -run ^Test -count=1
+#10 97.23 ok  	github.com/ad3n/v8go	2.461s
+#10 97.29 + go test -race . -run ^Test -count=1
+#10 192.1 ok  	github.com/ad3n/v8go	3.510s
+#10 192.1 + GOEXPERIMENT=cgocheck2 go test . -run ^Test -count=1
+#10 284.4 ok  	github.com/ad3n/v8go	2.339s
+#10 284.5 + go test ./...
+#10 293.3 ok  	github.com/ad3n/v8go	3.531s
+#10 293.3 ?   	github.com/ad3n/v8go/deps/include	[no test files]
+#10 293.3 ?   	github.com/ad3n/v8go/deps/include/cppgc	[no test files]
+#10 293.3 ?   	github.com/ad3n/v8go/deps/include/libplatform	[no test files]
+#10 330.1 ok  	github.com/ad3n/v8go/test	0.145s
+#10 330.1 + go vet ./...
+#10 340.9 + go test --tags leakcheck . -run ^Test -count=1
+#10 393.1 AddressSanitizer:DEADLYSIGNAL
+#10 393.1 =================================================================
+#10 393.1 ==8361==ERROR: AddressSanitizer: SEGV on unknown address 0x1cbb60020008 (pc 0x0000004d8e8f bp 0x7ffffffc6930 sp 0x7ffffffc60f0 T0)
+#10 393.1 ==8361==The signal is caused by a READ memory access.
+#10 393.1 ==8361==WARNING: invalid path to external symbolizer!
+#10 393.1 ==8361==WARNING: Failed to use and restart external symbolizer!
+#10 393.1     #0 0x0000004d8e8f  (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #1 0x000000bd4378  (/tmp/go-build34641493/b001/v8go.test+0xbd4378) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #2 0x0000010e51a2  (/tmp/go-build34641493/b001/v8go.test+0x10e51a2) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #3 0x0000010b494b  (/tmp/go-build34641493/b001/v8go.test+0x10b494b) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #4 0x000000cf0466  (/tmp/go-build34641493/b001/v8go.test+0xcf0466) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #5 0x000000cf063a  (/tmp/go-build34641493/b001/v8go.test+0xcf063a) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #6 0x000000a0959e  (/tmp/go-build34641493/b001/v8go.test+0xa0959e) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #7 0x000000a09606  (/tmp/go-build34641493/b001/v8go.test+0xa09606) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #8 0x000000a0cc03  (/tmp/go-build34641493/b001/v8go.test+0xa0cc03) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #9 0x000000a13793  (/tmp/go-build34641493/b001/v8go.test+0xa13793) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #10 0x000000a13e60  (/tmp/go-build34641493/b001/v8go.test+0xa13e60) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #11 0x000000a188f6  (/tmp/go-build34641493/b001/v8go.test+0xa188f6) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #12 0x000000a19900  (/tmp/go-build34641493/b001/v8go.test+0xa19900) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #13 0x0000014cb296  (/tmp/go-build34641493/b001/v8go.test+0x14cb296) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #14 0x0000014cb5d9  (/tmp/go-build34641493/b001/v8go.test+0x14cb5d9) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #15 0x0000014cb69e  (/tmp/go-build34641493/b001/v8go.test+0x14cb69e) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #16 0x00000086cc89  (/tmp/go-build34641493/b001/v8go.test+0x86cc89) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #17 0x0000008604ff  (/tmp/go-build34641493/b001/v8go.test+0x8604ff) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1     #18 0x0000005ac843  (/tmp/go-build34641493/b001/v8go.test+0x5ac843) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee)
+#10 393.1 
+#10 393.1 ==8361==Register values:
+#10 393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003  
+#10 393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0  
+#10 393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008  
+#10 393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021  
+#10 393.1 AddressSanitizer can not provide additional info.
+#10 393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee) 
+#10 393.1 ==8361==ABORTING
+#10 393.1 FAIL	github.com/ad3n/v8go	0.209s
+#10 393.1 FAIL
+#10 ERROR: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+------
+ > [validate-existing 1/1] RUN sh docker/validate-linux-amd64.sh:
+393.1 ==8361==Register values:
+393.1 rax = 0x00001cbb6002000a  rbx = 0x00001cbb60020008  rcx = 0x00001cbb6002000a  rdx = 0x0000000000000003  
+393.1 rdi = 0x0000e5d700140051  rsi = 0x0000000000000000  rbp = 0x00007ffffffc6930  rsp = 0x00007ffffffc60f0  
+393.1  r8 = 0x00001cbae002800a   r9 = 0x0000e5d700140053  r10 = 0x00001cbae002800a  r11 = 0x00001cbb60020008  
+393.1 r12 = 0x00002c4b001a5ee5  r13 = 0x0000e5d70014002c  r14 = 0x00005310000c9000  r15 = 0x0000e5d700140021  
+393.1 AddressSanitizer can not provide additional info.
+393.1 SUMMARY: AddressSanitizer: SEGV (/tmp/go-build34641493/b001/v8go.test+0x4d8e8f) (BuildId: 67838e2fe6886c28b5fbd6bd9bf4374d79c049ee) 
+393.1 ==8361==ABORTING
+393.1 FAIL	github.com/ad3n/v8go	0.209s
+393.1 FAIL
+------
+linux-amd64.Dockerfile:40
+--------------------
+  38 |     
+  39 |     FROM toolchain AS validate-existing
+  40 | >>> RUN sh docker/validate-linux-amd64.sh
+  41 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c sh docker/validate-linux-amd64.sh" did not complete successfully: exit code: 1
+
+=== linux-amd64-source.txt ===
+#9 4.880 hint: of your new repositories, which will suppress this warning, call:
+#9 4.880 hint: 
+#9 4.880 hint: 	git config --global init.defaultBranch <name>
+#9 4.880 hint: 
+#9 4.880 hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+#9 4.880 hint: 'development'. The just-created branch can be renamed via this command:
+#9 4.880 hint: 
+#9 4.880 hint: 	git branch -m <name>
+#9 4.887 Initialized empty Git repository in /src/deps/v8/.git/
+#9 33.04 From https://chromium.googlesource.com/v8/v8
+#9 33.04  * branch              5297e56d91816747d539abca52b578e5832135f0 -> FETCH_HEAD
+#9 33.97 HEAD is now at 5297e56d Version 13.6.233.10
+#9 34.82 WARNING: Your metrics.cfg file was invalid or nonexistent. A new one will be created.
+#9 501.4 
+#9 501.4 v8/third_party/llvm-build/Release+Asserts:Linux_x64/llvmobjdump-llvmorg-21-init-5118-g52cd27e6-5.tar.xz (ERROR)
+#9 501.4 ----------------------------------------
+#9 501.4 [0:00:38] Started.
+#9 501.4 ----------------------------------------
+#9 501.4 Traceback (most recent call last):
+#9 501.4   File "/src/deps/depot_tools/metrics.py", line 320, in print_notice_and_exit
+#9 501.4     yield
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 5597, in <module>
+#9 501.4     sys.exit(main(sys.argv[1:]))
+#9 501.4              ^^^^^^^^^^^^^^^^^^
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 5582, in main
+#9 501.4     return dispatcher.execute(OptionParser(), argv)
+#9 501.4            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#9 501.4   File "/src/deps/depot_tools/subcommand.py", line 278, in execute
+#9 501.4     return command(parser, args[1:])
+#9 501.4            ^^^^^^^^^^^^^^^^^^^^^^^^^
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 4772, in CMDsync
+#9 501.4     ret = client.RunOnDeps("update", args)
+#9 501.4           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 2837, in RunOnDeps
+#9 501.4     work_queue.flush(
+#9 501.4   File "/src/deps/depot_tools/gclient_utils.py", line 1138, in flush
+#9 501.4     reraise(e[0], e[1], e[2])
+#9 501.4   File "/src/deps/depot_tools/gclient_utils.py", line 56, in reraise
+#9 501.4     raise value
+#9 501.4   File "/src/deps/depot_tools/gclient_utils.py", line 1243, in run
+#9 501.4     self.item.run(*self.args, **self.kwargs)
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 3200, in run
+#9 501.4     self.DownloadGoogleStorage()
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 3400, in DownloadGoogleStorage
+#9 501.4     self._MaybeExtractArtifact()
+#9 501.4   File "/src/deps/depot_tools/gclient.py", line 3446, in _MaybeExtractArtifact
+#9 501.4     tar.extractall(path=self.output_dir, filter=TarFilter)
+#9 501.4 TypeError: TarFile.extractall() got an unexpected keyword argument 'filter'
+#9 501.5 Traceback (most recent call last):
+#9 501.5   File "/src/deps/build.py", line 339, in <module>
+#9 501.5     main()
+#9 501.5   File "/src/deps/build.py", line 307, in main
+#9 501.5     v8deps()
+#9 501.5   File "/src/deps/build.py", line 114, in v8deps
+#9 501.5     subprocess_check_call([sys.executable, os.path.join(tools_path, "gclient.py"), "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+#9 501.5   File "/src/deps/build.py", line 150, in subprocess_check_call
+#9 501.5     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+#9 501.5   File "/usr/lib/python3.11/subprocess.py", line 413, in check_call
+#9 501.5     raise CalledProcessError(retcode, cmd)
+#9 501.5 subprocess.CalledProcessError: Command '['/usr/bin/python3', '/src/deps/depot_tools/gclient.py', 'sync', '--delete_unversioned_trees', '--no-history', '--spec', "solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]\ntarget_os = ['linux']"]' returned non-zero exit status 1.
+#9 ERROR: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
+------
+ > [source-build 1/1] RUN test -n "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && git init deps/depot_tools     && git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git     && git -C deps/depot_tools fetch --depth=1 origin "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64:
+501.5     main()
+501.5   File "/src/deps/build.py", line 307, in main
+501.5     v8deps()
+501.5   File "/src/deps/build.py", line 114, in v8deps
+501.5     subprocess_check_call([sys.executable, os.path.join(tools_path, "gclient.py"), "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+501.5   File "/src/deps/build.py", line 150, in subprocess_check_call
+501.5     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+501.5   File "/usr/lib/python3.11/subprocess.py", line 413, in check_call
+501.5     raise CalledProcessError(retcode, cmd)
+501.5 subprocess.CalledProcessError: Command '['/usr/bin/python3', '/src/deps/depot_tools/gclient.py', 'sync', '--delete_unversioned_trees', '--no-history', '--spec', "solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]\ntarget_os = ['linux']"]' returned non-zero exit status 1.
+------
+linux-amd64.Dockerfile:18
+--------------------
+  17 |     ARG DEPOT_TOOLS_REVISION
+  18 | >>> RUN test -n "$DEPOT_TOOLS_REVISION" \
+  19 | >>>     && git init deps/depot_tools \
+  20 | >>>     && git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git \
+  21 | >>>     && git -C deps/depot_tools fetch --depth=1 origin "$DEPOT_TOOLS_REVISION" \
+  22 | >>>     && git -C deps/depot_tools checkout --detach FETCH_HEAD \
+  23 | >>>     && git init deps/v8 \
+  24 | >>>     && git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git \
+  25 | >>>     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)" \
+  26 | >>>     && git -C deps/v8 checkout --detach FETCH_HEAD \
+  27 | >>>     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64
+  28 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
+
+=== linux-amd64-source-python312.txt ===
+#14 4.802 hint: 	git config --global init.defaultBranch <name>
+#14 4.802 hint: 
+#14 4.802 hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+#14 4.802 hint: 'development'. The just-created branch can be renamed via this command:
+#14 4.802 hint: 
+#14 4.802 hint: 	git branch -m <name>
+#14 4.807 Initialized empty Git repository in /src/deps/v8/.git/
+#14 36.16 From https://chromium.googlesource.com/v8/v8
+#14 36.16  * branch              5297e56d91816747d539abca52b578e5832135f0 -> FETCH_HEAD
+#14 36.98 HEAD is now at 5297e56d Version 13.6.233.10
+#14 37.22 deps/build.py > /usr/local/bin/python3 /src/deps/depot_tools/gclient.py sync --delete_unversioned_trees --no-history --spec solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]
+#14 37.22 target_os = ['linux']
+#14 38.34 WARNING: Your metrics.cfg file was invalid or nonexistent. A new one will be created.
+#14 257.9 
+#14 257.9 ________ running 'cipd ensure -log-level error -root . -ensure-file /tmp/tmpjqmx582w.ensure' in '.'
+#14 257.9 [P3709 09:22:50.589 client.go:2179 E] [unzip 1/4] Failed to install gn/gn/linux-amd64 in "v8/buildtools/linux64": adding files to the site root: rename /src/deps/.cipd/pkgs/0/UTJwaB9q6x0uGRzZbhtZtqZ3if7ohrngjsCM4utG_VgC/gn /src/deps/v8/buildtools/linux64/gn: invalid cross-device link
+#14 258.7 [P3709 09:22:51.342 client.go:2179 E] [unzip 3/4] Failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
+#14 264.1 [P3709 09:22:56.772 client.go:2179 E] [unzip 4/4] Failed to install infra/build/siso/linux-amd64 in "v8/third_party/siso": adding files to the site root: rename /src/deps/.cipd/pkgs/2/WBFVMVdmo2i-nZvGl_5-xj_lIVo-2JeepZUL6twMeocC/siso /src/deps/v8/third_party/siso/siso: invalid cross-device link
+#14 281.5 [P3709 09:23:14.226 client.go:2179 E] [unzip 2/4] Failed to install infra/rbe/client/linux-amd64 in "v8/buildtools/reclient": adding files to the site root: rename /src/deps/.cipd/pkgs/3/uSrt0_v70X7LhC3_N3jVU9CRyMwiELpYm7jVnkCevkIC/CHANGELOG.md /src/deps/v8/buildtools/reclient/CHANGELOG.md: invalid cross-device link
+#14 281.5 Errors:
+#14 281.5   failed to install gn/gn/linux-amd64 in "v8/buildtools/linux64": adding files to the site root: rename /src/deps/.cipd/pkgs/0/UTJwaB9q6x0uGRzZbhtZtqZ3if7ohrngjsCM4utG_VgC/gn /src/deps/v8/buildtools/linux64/gn: invalid cross-device link
+#14 281.5   failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
+#14 281.5   failed to install infra/build/siso/linux-amd64 in "v8/third_party/siso": adding files to the site root: rename /src/deps/.cipd/pkgs/2/WBFVMVdmo2i-nZvGl_5-xj_lIVo-2JeepZUL6twMeocC/siso /src/deps/v8/third_party/siso/siso: invalid cross-device link
+#14 281.5   failed to install infra/rbe/client/linux-amd64 in "v8/buildtools/reclient": adding files to the site root: rename /src/deps/.cipd/pkgs/3/uSrt0_v70X7LhC3_N3jVU9CRyMwiELpYm7jVnkCevkIC/CHANGELOG.md /src/deps/v8/buildtools/reclient/CHANGELOG.md: invalid cross-device link
+#14 281.5 Error: Command 'cipd ensure -log-level error -root . -ensure-file /tmp/tmpjqmx582w.ensure' returned non-zero exit status 1
+#14 281.5 [P3709 09:22:50.589 client.go:2179 E] [unzip 1/4] Failed to install gn/gn/linux-amd64 in "v8/buildtools/linux64": adding files to the site root: rename /src/deps/.cipd/pkgs/0/UTJwaB9q6x0uGRzZbhtZtqZ3if7ohrngjsCM4utG_VgC/gn /src/deps/v8/buildtools/linux64/gn: invalid cross-device link
+#14 281.5 [P3709 09:22:51.342 client.go:2179 E] [unzip 3/4] Failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
+#14 281.5 [P3709 09:22:56.772 client.go:2179 E] [unzip 4/4] Failed to install infra/build/siso/linux-amd64 in "v8/third_party/siso": adding files to the site root: rename /src/deps/.cipd/pkgs/2/WBFVMVdmo2i-nZvGl_5-xj_lIVo-2JeepZUL6twMeocC/siso /src/deps/v8/third_party/siso/siso: invalid cross-device link
+#14 281.5 [P3709 09:23:14.226 client.go:2179 E] [unzip 2/4] Failed to install infra/rbe/client/linux-amd64 in "v8/buildtools/reclient": adding files to the site root: rename /src/deps/.cipd/pkgs/3/uSrt0_v70X7LhC3_N3jVU9CRyMwiELpYm7jVnkCevkIC/CHANGELOG.md /src/deps/v8/buildtools/reclient/CHANGELOG.md: invalid cross-device link
+#14 281.5 Errors:
+#14 281.5   failed to install gn/gn/linux-amd64 in "v8/buildtools/linux64": adding files to the site root: rename /src/deps/.cipd/pkgs/0/UTJwaB9q6x0uGRzZbhtZtqZ3if7ohrngjsCM4utG_VgC/gn /src/deps/v8/buildtools/linux64/gn: invalid cross-device link
+#14 281.5   failed to install infra/3pp/tools/ninja/linux-amd64 in "v8/third_party/ninja": adding files to the site root: rename /src/deps/.cipd/pkgs/1/Px8cwPaaG8_fZ_tsK8dBmx3YEruNDnmvqb-oo1U7UIIC/COPYING /src/deps/v8/third_party/ninja/COPYING: invalid cross-device link
+#14 281.5   failed to install infra/build/siso/linux-amd64 in "v8/third_party/siso": adding files to the site root: rename /src/deps/.cipd/pkgs/2/WBFVMVdmo2i-nZvGl_5-xj_lIVo-2JeepZUL6twMeocC/siso /src/deps/v8/third_party/siso/siso: invalid cross-device link
+#14 281.5   failed to install infra/rbe/client/linux-amd64 in "v8/buildtools/reclient": adding files to the site root: rename /src/deps/.cipd/pkgs/3/uSrt0_v70X7LhC3_N3jVU9CRyMwiELpYm7jVnkCevkIC/CHANGELOG.md /src/deps/v8/buildtools/reclient/CHANGELOG.md: invalid cross-device link
+#14 281.5 
+#14 281.5 
+#14 281.5 
+#14 281.5 Warnings:
+#14 281.5 git update is recommended.
+#14 281.5 Installed git version is 2.39.5;
+#14 281.5 depot_tools recommends version 2.46.0 or later.
+#14 281.5 Disable this warning by setting the GCLIENT_SUPPRESS_GIT_VERSION_WARNING
+#14 281.5 environment variable to 1.
+#14 281.6 Traceback (most recent call last):
+#14 281.6   File "/src/deps/build.py", line 339, in <module>
+#14 281.6     main()
+#14 281.6   File "/src/deps/build.py", line 307, in main
+#14 281.6     v8deps()
+#14 281.6   File "/src/deps/build.py", line 114, in v8deps
+#14 281.6     subprocess_check_call([sys.executable, os.path.join(tools_path, "gclient.py"), "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+#14 281.6   File "/src/deps/build.py", line 150, in subprocess_check_call
+#14 281.6     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+#14 281.6   File "/usr/local/lib/python3.12/subprocess.py", line 413, in check_call
+#14 281.6     raise CalledProcessError(retcode, cmd)
+#14 281.6 subprocess.CalledProcessError: Command '['/usr/local/bin/python3', '/src/deps/depot_tools/gclient.py', 'sync', '--delete_unversioned_trees', '--no-history', '--spec', "solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]\ntarget_os = ['linux']"]' returned non-zero exit status 1.
+#14 ERROR: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
+------
+ > [source-build 3/3] RUN --mount=type=cache,target=/src/deps/depot_tools     --mount=type=cache,target=/src/deps/v8     --mount=type=cache,target=/src/deps/.build     test -n "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64:
+281.6     main()
+281.6   File "/src/deps/build.py", line 307, in main
+281.6     v8deps()
+281.6   File "/src/deps/build.py", line 114, in v8deps
+281.6     subprocess_check_call([sys.executable, os.path.join(tools_path, "gclient.py"), "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+281.6   File "/src/deps/build.py", line 150, in subprocess_check_call
+281.6     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+281.6   File "/usr/local/lib/python3.12/subprocess.py", line 413, in check_call
+281.6     raise CalledProcessError(retcode, cmd)
+281.6 subprocess.CalledProcessError: Command '['/usr/local/bin/python3', '/src/deps/depot_tools/gclient.py', 'sync', '--delete_unversioned_trees', '--no-history', '--spec', "solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]\ntarget_os = ['linux']"]' returned non-zero exit status 1.
+------
+linux-amd64.Dockerfile:24
+--------------------
+  23 |     ARG DEPOT_TOOLS_REVISION
+  24 | >>> RUN --mount=type=cache,target=/src/deps/depot_tools \
+  25 | >>>     --mount=type=cache,target=/src/deps/v8 \
+  26 | >>>     --mount=type=cache,target=/src/deps/.build \
+  27 | >>>     test -n "$DEPOT_TOOLS_REVISION" \
+  28 | >>>     && git init deps/depot_tools \
+  29 | >>>     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 || \
+  30 | >>>         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git) \
+  31 | >>>     && git -C deps/depot_tools fetch --depth=1 origin "$DEPOT_TOOLS_REVISION" \
+  32 | >>>     && git -C deps/depot_tools checkout --detach FETCH_HEAD \
+  33 | >>>     && git init deps/v8 \
+  34 | >>>     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 || \
+  35 | >>>         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git) \
+  36 | >>>     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)" \
+  37 | >>>     && git -C deps/v8 checkout --detach FETCH_HEAD \
+  38 | >>>     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64
+  39 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs 4 --os linux --arch amd64" did not complete successfully: exit code: 1
+
+=== linux-amd64-source-final.txt ===
+#14 10.15 hint: 'development'. The just-created branch can be renamed via this command:
+#14 10.15 hint: 
+#14 10.15 hint: 	git branch -m <name>
+#14 10.16 Initialized empty Git repository in /native/deps/v8/.git/
+#14 206.6 From https://chromium.googlesource.com/v8/v8
+#14 206.6  * branch              5297e56d91816747d539abca52b578e5832135f0 -> FETCH_HEAD
+#14 207.6 HEAD is now at 5297e56d Version 13.6.233.10
+#14 207.8 deps/build.py > /usr/local/bin/python3 /native/deps/depot_tools/gclient.py sync --delete_unversioned_trees --no-history --spec solutions = [{'name': 'v8', 'url': 'https://chromium.googlesource.com/v8/v8.git', 'deps_file': 'DEPS', 'managed': False, 'custom_deps': {'v8/testing/gmock': None, 'v8/test/wasm-js': None, 'v8/third_party/colorama/src': None, 'v8/tools/gyp': None, 'v8/tools/luci-go': None, 'v8/third_party/catapult': None, 'v8/third_party/android_tools': None}, 'custom_hooks': [{'name': 'vpython3_common'}], 'custom_vars': {'build_for_node': True}}]
+#14 207.8 target_os = ['linux']
+#14 208.7 WARNING: Your metrics.cfg file was invalid or nonexistent. A new one will be created.
+#14 445.5 ________ running 'python3 third_party/depot_tools/update_depot_tools_toggle.py --disable' in './v8'
+#14 445.8 ________ running 'python3 build/landmines.py --landmine-scripts tools/get_landmines.py' in './v8'
+#14 491.1 ________ running 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth -u --bucket v8-wasm-spec-tests -s test/wasm-spec-tests/tests.tar.gz.sha1' in './v8'
+#14 491.1 /native/deps/v8/third_party/depot_tools/download_from_google_storage.py:418: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+#14 491.1   tar.extractall(path=dirname)
+#14 492.7 0> Downloading test/wasm-spec-tests/tests.tar.gz@e8f855c3f80301e3f127eaf18ba426dd6208c4bb...
+#14 492.7 0> Extracting 483 entries from test/wasm-spec-tests/tests.tar.gz to test/wasm-spec-tests/tests
+#14 492.7 Downloading 1 files took 46.744195 second(s)
+#14 492.7 Hook 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth -u --bucket v8-wasm-spec-tests -s test/wasm-spec-tests/tests.tar.gz.sha1' took 46.89 secs
+#14 495.1 ________ running 'python3 third_party/depot_tools/download_from_google_storage.py --no_resume --no_auth -u --bucket v8-wasm-spec-tests -s test/wasm-js/tests.tar.gz.sha1' in './v8'
+#14 495.1 /native/deps/v8/third_party/depot_tools/download_from_google_storage.py:418: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.
+#14 495.1   tar.extractall(path=dirname)
+#14 496.6 0> Downloading test/wasm-js/tests.tar.gz@8a69e14a26326662093099426eff78db6d409761...
+#14 496.6 0> Extracting 252 entries from test/wasm-js/tests.tar.gz to test/wasm-js/tests
+#14 496.6 Downloading 1 files took 3.769395 second(s)
+#14 496.9 ________ running 'python3 build/util/lastchange.py -o build/util/LASTCHANGE' in './v8'
+#14 497.0 ________ running 'python3 buildtools/reclient_cfgs/configure_reclient_cfgs.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance --reproxy_cfg_template reproxy.cfg.template --rewrapper_cfg_project  --skip_remoteexec_cfg_fetch' in './v8'
+#14 497.0 generate reproxy.cfg using /native/deps/v8/buildtools/reclient_cfgs/reproxy_cfg_templates/reproxy.cfg.template
+#14 497.1 ________ running 'python3 build/config/siso/configure_siso.py --rbe_instance projects/rbe-chrome-untrusted/instances/default_instance' in './v8'
+#14 497.1 
+#14 497.1 
+#14 497.1 Warnings:
+#14 497.1 git update is recommended.
+#14 497.1 Installed git version is 2.39.5;
+#14 497.1 depot_tools recommends version 2.46.0 or later.
+#14 497.1 Disable this warning by setting the GCLIENT_SUPPRESS_GIT_VERSION_WARNING
+#14 497.1 environment variable to 1.
+#14 497.1 deps/build.py > /native/deps/depot_tools/gn gen /native/deps/.build/linux_amd64 --args= is_debug=false is_clang=true target_os="linux" target_cpu="x64" v8_target_cpu="x64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true 
+#14 497.3 python3_bin_reldir.txt not found. need to initialize depot_tools by
+#14 497.3 running gclient, update_depot_tools or ensure_bootstrap.
+#14 497.3 Traceback (most recent call last):
+#14 497.3   File "/native/deps/build.py", line 339, in <module>
+#14 497.3     main()
+#14 497.3   File "/native/deps/build.py", line 320, in main
+#14 497.3     subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
+#14 497.3   File "/native/deps/build.py", line 150, in subprocess_check_call
+#14 497.3     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+#14 497.3   File "/usr/local/lib/python3.12/subprocess.py", line 413, in check_call
+#14 497.3     raise CalledProcessError(retcode, cmd)
+#14 497.3 subprocess.CalledProcessError: Command '['/native/deps/depot_tools/gn', 'gen', '/native/deps/.build/linux_amd64', '--args= is_debug=false is_clang=true target_os="linux" target_cpu="x64" v8_target_cpu="x64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true ']' returned non-zero exit status 1.
+#14 ERROR: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && mkdir -p /native/deps     && cp go.mod /native/go.mod     && cp deps/build.py deps/build_common.py deps/update_cgo.py deps/v8_hash /native/deps/     && cd /native     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs \"$BUILD_JOBS\" --os linux --arch amd64     && rm -rf /src/deps/linux_amd64 /src/deps/include     && cp -a deps/linux_amd64 deps/include /src/deps/     && cp cgo_linux_amd64.go /src/" did not complete successfully: exit code: 1
+------
+ > [source-build 3/3] RUN --mount=type=cache,id=v8go-linux-amd64-golang:1.26-bookworm,target=/native,sharing=locked     test -n "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && mkdir -p /native/deps     && cp go.mod /native/go.mod     && cp deps/build.py deps/build_common.py deps/update_cgo.py deps/v8_hash /native/deps/     && cd /native     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin "9656a8db85ab195c2f169cd53f29b7fbccb969b8"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs "2" --os linux --arch amd64     && rm -rf /src/deps/linux_amd64 /src/deps/include     && cp -a deps/linux_amd64 deps/include /src/deps/     && cp cgo_linux_amd64.go /src/:
+497.3 Traceback (most recent call last):
+497.3   File "/native/deps/build.py", line 339, in <module>
+497.3     main()
+497.3   File "/native/deps/build.py", line 320, in main
+497.3     subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
+497.3   File "/native/deps/build.py", line 150, in subprocess_check_call
+497.3     subprocess.check_call(cmd(cmdargs), *pargs, **kwargs)
+497.3   File "/usr/local/lib/python3.12/subprocess.py", line 413, in check_call
+497.3     raise CalledProcessError(retcode, cmd)
+497.3 subprocess.CalledProcessError: Command '['/native/deps/depot_tools/gn', 'gen', '/native/deps/.build/linux_amd64', '--args= is_debug=false is_clang=true target_os="linux" target_cpu="x64" v8_target_cpu="x64" clang_use_chrome_plugins=false use_custom_libcxx=false use_sysroot=false use_glib=false symbol_level=0 strip_debug_info=true is_component_build=false v8_monolithic=true v8_enable_pointer_compression=true v8_enable_31bit_smis_on_64bit_arch=true v8_enable_sandbox=true v8_use_external_startup_data=false treat_warnings_as_errors=false v8_embedder_string="-v8go" v8_enable_gdbjit=false v8_enable_i18n_support=true icu_use_data_file=false v8_enable_test_features=false exclude_unwind_tables=true v8_android_log_stdout=true ']' returned non-zero exit status 1.
+------
+linux-amd64.Dockerfile:26
+--------------------
+  25 |     ARG BUILD_JOBS=2
+  26 | >>> RUN --mount=type=cache,id=v8go-linux-amd64-${GO_IMAGE},target=/native,sharing=locked \
+  27 | >>>     test -n "$DEPOT_TOOLS_REVISION" \
+  28 | >>>     && mkdir -p /native/deps \
+  29 | >>>     && cp go.mod /native/go.mod \
+  30 | >>>     && cp deps/build.py deps/build_common.py deps/update_cgo.py deps/v8_hash /native/deps/ \
+  31 | >>>     && cd /native \
+  32 | >>>     && git init deps/depot_tools \
+  33 | >>>     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 || \
+  34 | >>>         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git) \
+  35 | >>>     && git -C deps/depot_tools fetch --depth=1 origin "$DEPOT_TOOLS_REVISION" \
+  36 | >>>     && git -C deps/depot_tools checkout --detach FETCH_HEAD \
+  37 | >>>     && git init deps/v8 \
+  38 | >>>     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 || \
+  39 | >>>         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git) \
+  40 | >>>     && git -C deps/v8 fetch --depth=1 origin "$(cat deps/v8_hash)" \
+  41 | >>>     && git -C deps/v8 checkout --detach FETCH_HEAD \
+  42 | >>>     && python3 deps/build.py --verbose --clang --jobs "$BUILD_JOBS" --os linux --arch amd64 \
+  43 | >>>     && rm -rf /src/deps/linux_amd64 /src/deps/include \
+  44 | >>>     && cp -a deps/linux_amd64 deps/include /src/deps/ \
+  45 | >>>     && cp cgo_linux_amd64.go /src/
+  46 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c test -n \"$DEPOT_TOOLS_REVISION\"     && mkdir -p /native/deps     && cp go.mod /native/go.mod     && cp deps/build.py deps/build_common.py deps/update_cgo.py deps/v8_hash /native/deps/     && cd /native     && git init deps/depot_tools     && (git -C deps/depot_tools remote get-url origin >/dev/null 2>&1 ||         git -C deps/depot_tools remote add origin https://chromium.googlesource.com/chromium/tools/depot_tools.git)     && git -C deps/depot_tools fetch --depth=1 origin \"$DEPOT_TOOLS_REVISION\"     && git -C deps/depot_tools checkout --detach FETCH_HEAD     && git init deps/v8     && (git -C deps/v8 remote get-url origin >/dev/null 2>&1 ||         git -C deps/v8 remote add origin https://chromium.googlesource.com/v8/v8.git)     && git -C deps/v8 fetch --depth=1 origin \"$(cat deps/v8_hash)\"     && git -C deps/v8 checkout --detach FETCH_HEAD     && python3 deps/build.py --verbose --clang --jobs \"$BUILD_JOBS\" --os linux --arch amd64     && rm -rf /src/deps/linux_amd64 /src/deps/include     && cp -a deps/linux_amd64 deps/include /src/deps/     && cp cgo_linux_amd64.go /src/" did not complete successfully: exit code: 1

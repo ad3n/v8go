@@ -3,5 +3,9 @@
 
 package v8go
 
-// Ensure the appropriate cgo library is pulled in.
-import _ "github.com/tommie/v8go/deps/linux_amd64"
+// #cgo LDFLAGS: -pthread -L${SRCDIR}/deps/linux_amd64
+// #cgo LDFLAGS: -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -Wl,--end-group
+// #cgo darwin LDFLAGS: -framework CoreFoundation
+// #cgo libgcompat LDFLAGS: -lgcompat
+// #cgo linux LDFLAGS: -ldl
+import "C"

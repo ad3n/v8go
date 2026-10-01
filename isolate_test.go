@@ -273,8 +273,10 @@ func BenchmarkIsolateInitAndRun(b *testing.B) {
 		cmd := fmt.Sprintf("process(%s)", str)
 		ctx.RunScript(cmd, "cmd.js")
 		ctx.Close()
-		vm.Close() // force disposal of the VM
+		vm.Close()
 	}
+
+	b.ReportMetric(1, "isolates/op")
 }
 
 const script = `

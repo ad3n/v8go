@@ -1,0 +1,77 @@
+name: Local V8 Build Validation
+
+on:
+  push:
+    branches:
+      - codex/local-v8-amd64
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      docker_go_image:
+        description: Debian Go build image matching production's libc baseline
+        default: golang:1.26-bookworm
+        required: false
+        type: string
+
+jobs:
+  docker-linux-amd64:
+    name: Docker Linux amd64 source build and safety checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build and validate production architecture
+        env:
+          GO_IMAGE: ${{ inputs.docker_go_image || 'golang:1.26-bookworm' }}
+        run: |
+          docker build --platform linux/amd64 --progress plain \
+            --build-arg GO_IMAGE="$GO_IMAGE" \
+            --build-arg DEPOT_TOOLS_REVISION="$(git -C deps/depot_tools rev-parse HEAD)" \
+            --target validate-source \
+            -f docker/linux-amd64.Dockerfile .
+
+  source-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            os: linux
+            arch: amd64
+          - platform: macos-14
+            os: darwin
+            arch: arm64
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Verify pinned source
+        run: test "$(git -C deps/v8 rev-parse HEAD)" = "$(cat deps/v8_hash)"
+      - name: Compile V8 from source
+        run: python3 deps/build.py --clang --jobs 4 --os ${{ matrix.os }} --arch ${{ matrix.arch }}
+      - name: Verify generated linker configuration
+        run: python3 -m unittest discover -s deps -p 'test_*.py'
+      - name: Validate local build
+        env:
+          GOPROXY: off
+          GOSUMDB: off
+          CC: clang
+          CXX: clang++
+        run: |
+          go test . -run '^Test' -count=1
+          go test -race . -run '^Test' -count=1
+          GOEXPERIMENT=cgocheck2 go test . -run '^Test' -count=1
+          go test --tags leakcheck . -run '^Test' -count=1
+          go test ./...
+          go vet ./...
+          git diff --check
+      - name: Benchmark native build
+        run: go test . -run '^$' -bench '^BenchmarkIsolateInitAndRun$' -benchmem -benchtime=2s -count=5
