@@ -5,7 +5,9 @@
 package v8go_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -45,6 +47,9 @@ func TestIsolateTerminateExecution(t *testing.T) {
 	_, e := ctx.RunScript(script, "forever.js")
 	if e == nil || !strings.HasPrefix(e.Error(), "ExecutionTerminated") {
 		t.Errorf("unexpected error: %v", e)
+	}
+	if errors.Is(e, v8.ErrHeapLimitReached) {
+		t.Errorf("error matched ErrHeapLimitReached: %v", e)
 	}
 
 	if !terminating {
@@ -157,6 +162,86 @@ func TestIsolateGetHeapStatistics(t *testing.T) {
 	if hs.NumberOfDetachedContexts != 0 {
 		t.Error("expect NumberOfDetachedContexts return 0, got", hs.NumberOfDetachedContexts)
 	}
+}
+
+func TestIsolateLowMemoryNotification(t *testing.T) {
+	t.Parallel()
+	iso := v8.NewIsolate()
+	defer iso.Dispose()
+
+	iso.LowMemoryNotification()
+}
+
+func TestIsolateWriteHeapSnapshot(t *testing.T) {
+	t.Parallel()
+	iso := v8.NewIsolate()
+	defer iso.Dispose()
+	ctx := v8.NewContext(iso)
+	defer ctx.Close()
+
+	if _, err := ctx.RunScript("class HeapSnapshotMarker {}; globalThis.marker = new HeapSnapshotMarker();", "main.js"); err != nil {
+		t.Fatalf("RunScript failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := iso.WriteHeapSnapshot(&buf); err != nil {
+		t.Fatalf("WriteHeapSnapshot failed: %v", err)
+	}
+
+	// The format Chrome DevTools reads.
+	var snapshot struct {
+		Snapshot struct {
+			Meta struct {
+				NodeFields []string `json:"node_fields"`
+			} `json:"meta"`
+			NodeCount int `json:"node_count"`
+		} `json:"snapshot"`
+		Nodes   []int    `json:"nodes"`
+		Strings []string `json:"strings"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &snapshot); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if nf := len(snapshot.Snapshot.Meta.NodeFields); nf == 0 || snapshot.Snapshot.NodeCount*nf != len(snapshot.Nodes) {
+		t.Errorf("got %d nodes with %d fields, want %d values", snapshot.Snapshot.NodeCount, nf, len(snapshot.Nodes))
+	}
+	found := false
+	for _, s := range snapshot.Strings {
+		if s == "HeapSnapshotMarker" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("HeapSnapshotMarker not found in snapshot strings")
+	}
+}
+
+func TestIsolateWriteHeapSnapshot_WriterError(t *testing.T) {
+	t.Parallel()
+	iso := v8.NewIsolate()
+	defer iso.Dispose()
+
+	wantErr := errors.New("write failed")
+	w := &failingWriter{err: wantErr}
+	if err := iso.WriteHeapSnapshot(w); !errors.Is(err, wantErr) {
+		t.Errorf("WriteHeapSnapshot error: got %v, want %v", err, wantErr)
+	}
+	if w.calls != 1 {
+		t.Errorf("Write calls: got %d, want 1", w.calls)
+	}
+}
+
+// failingWriter is an io.Writer that always fails.
+type failingWriter struct {
+	err   error
+	calls int
+}
+
+func (w *failingWriter) Write(p []byte) (int, error) {
+	w.calls++
+	return 0, w.err
 }
 
 func TestCallbackRegistry(t *testing.T) {
@@ -294,6 +379,41 @@ func makeObject() any {
 	return map[string]any{
 		"a": rand.Intn(1000000),
 		"b": "AAAABBBBAAAABBBBAAAABBBBAAAABBBBAAAABBBB",
+	}
+}
+
+func TestIsolateHeapLimitReached(t *testing.T) {
+	t.Parallel()
+
+	iso := v8.NewIsolate(v8.WithResourceConstraints(8<<20, 16<<20))
+	defer iso.Dispose()
+	ctx := v8.NewContext(iso)
+	defer ctx.Close()
+
+	limit := iso.GetHeapStatistics().HeapSizeLimit
+
+	// Reaching the limit repeatedly must neither crash the process, nor
+	// raise the limit permanently.
+	for i := 0; i < 3; i++ {
+		_, err := ctx.RunScript(`{ const data = []; for (;;) data.push("x".repeat(1000) + Math.random()); }`, "oom.js")
+		if !errors.Is(err, v8.ErrHeapLimitReached) {
+			t.Fatalf("RunScript error: got %v, want ErrHeapLimitReached", err)
+		}
+		if !strings.HasPrefix(err.Error(), "ExecutionTerminated") {
+			t.Errorf("RunScript error: got %q, want ExecutionTerminated prefix", err)
+		}
+
+		if got := iso.GetHeapStatistics().HeapSizeLimit; got != limit {
+			t.Errorf("HeapSizeLimit after %d terminations: got %d, want %d", i+1, got, limit)
+		}
+
+		val, err := ctx.RunScript("40 + 2", "after.js")
+		if err != nil {
+			t.Fatalf("RunScript after termination failed: %v", err)
+		}
+		if val.Integer() != 42 {
+			t.Errorf("RunScript after termination: got %v, want 42", val)
+		}
 	}
 }
 

@@ -39,7 +39,9 @@ deps_path = os.path.dirname(os.path.realpath(__file__))
 v8_path = os.path.join(deps_path, "v8")
 tools_path = os.path.join(deps_path, "depot_tools")
 is_windows = platform.system().lower() == "windows"
-is_clang = args.clang if args.clang is not None else args.os != "linux"
+# Chromium only supports Clang for our targets, and its libc++ requires
+# it.
+is_clang = args.clang if args.clang is not None else True
 
 def get_custom_deps():
     # These deps are unnecessary for building.
@@ -74,8 +76,8 @@ target_os="%s"
 target_cpu="%s"
 v8_target_cpu="%s"
 clang_use_chrome_plugins=false
-use_custom_libcxx=false
-use_sysroot=false
+use_custom_libcxx=true
+use_sysroot=%s
 use_glib=false
 symbol_level=%s
 strip_debug_info=%s
@@ -90,16 +92,116 @@ icu_use_data_file=false
 v8_enable_test_features=false
 exclude_unwind_tables=true
 v8_android_log_stdout=true
+v8_enable_temporal_support=false
 """
+
+# Chromium's pinned Debian sysroot, used on Linux. This makes the build
+# independent of the host's glibc, and sets the minimum glibc version
+# users need. It only affects Linux; Android uses the NDK sysroot, and
+# macOS the Xcode SDK.
+def use_sysroot():
+    return args.os == "linux"
+
+# Libraries in the sysroot that cgo users link with. librt is not
+# included, since update_cgo.py doesn't add -lrt.
+SYSROOT_TRIPLES = {"amd64": "x86_64-linux-gnu", "arm64": "aarch64-linux-gnu"}
+SYSROOT_SHARED_LIBS = ["libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "libgcc_s.so.1"]
+SYSROOT_LOADERS = {"amd64": "ld-linux-x86-64.so.2", "arm64": "ld-linux-aarch64.so.1"}
+# The libc.so linker script adds this, which defines e.g. stat64 and
+# pthread_atfork before glibc 2.33/2.34.
+SYSROOT_STATIC_LIBS = ["libc_nonshared.a"]
+
+# Defined by the linker or crt*.o, rather than any library.
+LINKER_SYMBOLS = {"__dso_handle", "_GLOBAL_OFFSET_TABLE_", "__ehdr_start"}
+
+def is_linker_symbol(name):
+    # The linker defines __start_/__stop_ symbols for named sections.
+    return name in LINKER_SYMBOLS or name.startswith(("__start_", "__stop_"))
+
+def sysroot_path(arch):
+    return os.path.join(v8_path, "build", "linux", "debian_bullseye_{}-sysroot".format(arch))
+
+def install_sysroots():
+    # Host tools, like mksnapshot, are built for the host CPU.
+    for arch in sorted({args.arch, current_arch}):
+        subprocess_check_call([sys.executable, "build/linux/sysroot_scripts/install-sysroot.py", "--arch=" + arch], cwd=v8_path)
+
+def nm(nm_args):
+    nm_path = os.path.join(v8_path, "third_party", "llvm-build", "Release+Asserts", "bin", "llvm-nm")
+    # stderr only contains "no symbols" for some members.
+    return subprocess_check_output_text([nm_path] + nm_args, stderr=subprocess.DEVNULL).splitlines()
+
+def check_sysroot_symbols(dest_path):
+    """Fails if the archives need symbols the sysroot doesn't provide.
+
+    Symbol versions are only bound when users link, so we check that
+    every undefined symbol is available in the sysroot's libraries.
+    Building against the host's headers instead can e.g. redirect strtol
+    to __isoc23_strtol, which requires glibc 2.38.
+    """
+    archives = sorted(glob.glob(os.path.join(dest_path, "lib*.a")))
+    defined = set()
+    undefined = set()
+    for line in nm(["--no-sort"] + archives):
+        fields = line.split()
+        if len(fields) < 2 or line.endswith(":"):
+            continue
+        kind, name = fields[-2], fields[-1]
+        if kind == "U":
+            undefined.add(name)
+        elif kind not in ("w", "v"):
+            defined.add(name)
+
+    root = sysroot_path(args.arch)
+    triple = SYSROOT_TRIPLES[args.arch]
+    shared = [os.path.join(root, "lib", triple, lib) for lib in SYSROOT_SHARED_LIBS + [SYSROOT_LOADERS[args.arch]]]
+    static = [os.path.join(root, "usr", "lib", triple, lib) for lib in SYSROOT_STATIC_LIBS]
+    libgcc = glob.glob(os.path.join(root, "usr", "lib", "gcc", triple, "*", "libgcc.a"))
+    if len(libgcc) != 1:
+        raise RuntimeError("expected one libgcc.a in {}, found {}".format(root, libgcc))
+    static += libgcc
+    for path in shared + static:
+        if not os.path.isfile(path):
+            raise RuntimeError("sysroot library not found: {}".format(path))
+
+    provided = set()
+    for path in shared:
+        provided.update(name.split("@")[0] for name in nm(["-D", "--defined-only", "-j", path]))
+    provided.update(nm(["--defined-only", "-j"] + static))
+
+    missing = sorted(name for name in undefined - defined - provided if not is_linker_symbol(name))
+    if missing:
+        raise RuntimeError("symbols not provided by {}:\n  {}".format(root, "\n  ".join(missing)))
 
 def v8deps():
     spec = "solutions = %s\n" % gclient_sln
     spec += "target_os = [%r]" % (v8_os(),)
     env = os.environ.copy()
     env["PATH"] = tools_path + os.pathsep + env["PATH"]
-    subprocess_check_call(["gclient", "sync", "--delete_unversioned_trees", "--no-history", "--spec", spec],
+    # --force: disable_crel() modifies v8/build, which would otherwise
+    # stop a sync when build.py runs again on the same tree.
+    subprocess_check_call(["gclient", "sync", "--force", "--delete_unversioned_trees", "--no-history", "--spec", spec],
                         cwd=deps_path,
                         env=env)
+
+CREL_CFLAGS = 'cflags += [ "-Wa,--crel,--allow-experimental-crel" ]'
+CREL_DISABLED = "# v8go: CREL disabled."
+
+def disable_crel():
+    """Stops Chromium's Clang from emitting CREL relocations.
+
+    Only LLD reads them, while cgo users link with the system linker.
+    There is no GN argument for this, so we edit the build config.
+    """
+    path = os.path.join(v8_path, "build", "config", "compiler", "BUILD.gn")
+    with open(path, "rt") as f:
+        source = f.read()
+
+    if CREL_CFLAGS in source:
+        with open(path, "wt") as f:
+            f.write(source.replace(CREL_CFLAGS, CREL_DISABLED))
+    elif CREL_DISABLED not in source:
+        raise RuntimeError("CREL flags not found in {}; check if disable_crel() is still needed".format(path))
 
 def build_gn_args():
     is_debug = args.debug
@@ -116,6 +218,7 @@ def build_gn_args():
         v8_os(),
         arch,
         arch,
+        str(use_sysroot()).lower(),
         symbol_level,
         str(strip_debug_info).lower(),
     )
@@ -260,6 +363,44 @@ def split_ar(src_fn, dest_fn, dest_obj_dn):
         for dest_fn in dest_fns:
             print(dest_fn, file=f)
 
+def copy_libcxx(build_path, dest_path):
+    """Copies Chromium's libc++ and libc++abi next to libv8.
+
+    They are named *-cr.a to avoid confusion with the system library.
+    Ninja produces thin archives, which only reference object files, so
+    we create regular archives from the members.
+    """
+    ar_path = os.path.abspath(os.path.join(v8_path, "third_party/llvm-build/Release+Asserts/bin/llvm-ar"))
+
+    for name in ("libc++", "libc++abi"):
+        src = os.path.join(build_path, "obj", "buildtools", "third_party", name, name + ".a")
+        dest = os.path.join(dest_path, name + "-cr.a")
+
+        members = subprocess_check_output_text([ar_path, "t", src], cwd=build_path).splitlines()
+        if not members:
+            raise RuntimeError("archive is empty: {}".format(src))
+
+        if os.path.exists(dest):
+            os.unlink(dest)
+        subprocess_check_call([ar_path, "qcs", dest] + members, cwd=build_path)
+
+# Target triples of Chromium's Clang runtime libraries.
+LINUX_TRIPLES = {"amd64": "x86_64-unknown-linux-gnu", "arm64": "aarch64-unknown-linux-gnu"}
+
+def copy_builtins(dest_path):
+    """Copies Clang's compiler-rt builtins next to libv8.
+
+    V8 can call builtins, like __extendhfsf2 for Float16, that libgcc
+    only provides from GCC 12. Chromium links these instead of libgcc,
+    and so do we, for a known minimum.
+    """
+    clang_path = os.path.join(v8_path, "third_party", "llvm-build", "Release+Asserts", "bin", "clang")
+    src = subprocess_check_output_text([clang_path, "--target=" + LINUX_TRIPLES[args.arch], "--rtlib=compiler-rt", "-print-libgcc-file-name"], stderr=subprocess.DEVNULL).strip()
+    if not os.path.isfile(src):
+        raise RuntimeError("compiler-rt builtins not found: {}".format(src))
+
+    shutil.copyfile(src, os.path.join(dest_path, "libclang_rt.builtins-cr.a"))
+
 def allocate_disjoint_files(ar_files, case_sensitive=True):
     ar_file_counts = {} # file -> count
     for ar_file in ar_files:
@@ -290,6 +431,9 @@ def allocate_disjoint_files(ar_files, case_sensitive=True):
 
 def main():
     v8deps()
+    disable_crel()
+    if use_sysroot():
+        install_sysroots()
     if is_windows:
         apply_mingw_patches()
 
@@ -303,7 +447,7 @@ def main():
     gnargs = build_gn_args()
 
     subprocess_check_call([gn_path, "gen", build_path, "--args=" + gnargs.replace('\n', ' ')], cwd=v8_path)
-    subprocess_check_call([ninja_path, "-v", "-C", build_path, "v8_monolith"], cwd=v8_path)
+    subprocess_check_call([ninja_path, "-v", "-C", build_path, "v8_monolith", "libc++", "libc++abi"], cwd=v8_path)
 
     dest_path = os.path.join(deps_path, os_arch())
     dest_obj_dn = os.path.join(dest_path, "obj")
@@ -312,6 +456,11 @@ def main():
             os.path.join(build_path, "obj/libv8_monolith.a"),
             os.path.join(dest_path, "libv8.a"),
             dest_obj_dn)
+        copy_libcxx(build_path, dest_path)
+        if args.os == "linux":
+            copy_builtins(dest_path)
+        if use_sysroot():
+            check_sysroot_symbols(dest_path)
     finally:
         if os.path.exists(dest_obj_dn):
             shutil.rmtree(dest_obj_dn)
