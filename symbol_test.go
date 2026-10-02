@@ -32,6 +32,7 @@ func TestBuiltinSymbol(t *testing.T) {
 		{v8.SymbolToStringTag, "Symbol.toStringTag"},
 		{v8.SymbolUnscopables, "Symbol.unscopables"},
 	}
+
 	for _, tst := range tsts {
 		t.Run(tst.WantDescription, func(t *testing.T) {
 			iter := tst.Func(iso)

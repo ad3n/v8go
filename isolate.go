@@ -16,9 +16,6 @@ import (
 	"unsafe"
 )
 
-// Isolate is a JavaScript VM instance with its own heap and
-// garbage collector. Most applications will create one isolate
-// with many V8 contexts for execution.
 type Isolate struct {
 	ptr C.IsolatePtr
 
@@ -30,7 +27,6 @@ type Isolate struct {
 	undefined *Value
 }
 
-// HeapStatistics represents V8 isolate heap statistics
 type HeapStatistics struct {
 	TotalHeapSize            uint64
 	TotalHeapSizeExecutable  uint64
@@ -50,29 +46,19 @@ type resourceConstraints struct {
 	MaxHeapSizeInBytes     uint64
 }
 
-// IsolateOption configures an Isolate on creation.
 type IsolateOption func(*isolateConfig)
 
-// isolateConfig holds the configuration for creating an isolate.
 type isolateConfig struct {
 	resourceConstraints *resourceConstraints
 	exceptionMessages   bool
 }
 
-// WithExceptionMessages makes errors from JavaScript exceptions include
-// details, such as the stack frames, returned by JSError.ExceptionMessage.
-// This costs time and memory on every error, so it's off by default.
 func WithExceptionMessages() IsolateOption {
 	return func(config *isolateConfig) {
 		config.exceptionMessages = true
 	}
 }
 
-// WithResourceConstraints sets memory constraints for the isolate.
-//
-// When any isolate reaches its heap limit, v8go terminates the running
-// script instead of letting V8 end the process. The returned error then
-// matches ErrHeapLimitReached, and the isolate can be used again.
 func WithResourceConstraints(initialHeapSizeInBytes, maxHeapSizeInBytes uint64) IsolateOption {
 	return func(config *isolateConfig) {
 		config.resourceConstraints = &resourceConstraints{
@@ -82,17 +68,11 @@ func WithResourceConstraints(initialHeapSizeInBytes, maxHeapSizeInBytes uint64) 
 	}
 }
 
-// NewIsolate creates a new V8 isolate with the provided options.
-// Only one thread may access a given isolate at a time, but different
-// threads may access different isolates simultaneously.
-// When an isolate is no longer used its resources should be freed
-// by calling iso.Dispose().
-// An *Isolate can be used as a v8go.ContextOption to create a new
-// Context, rather than creating a new default Isolate.
 func NewIsolate(opts ...IsolateOption) *Isolate {
 	initializeIfNecessary()
 
 	config := &isolateConfig{}
+
 	for _, opt := range opts {
 		opt(config)
 	}
@@ -109,23 +89,20 @@ func NewIsolate(opts ...IsolateOption) *Isolate {
 		ptr: C.NewIsolate(cConstraints),
 		cbs: make(map[int]FunctionCallbackWithError),
 	}
+
 	if config.exceptionMessages {
 		C.IsolateSetExceptionMessages(iso.ptr, 1)
 	}
+
 	iso.null = newValueNull(iso)
 	iso.undefined = newValueUndefined(iso)
 	return iso
 }
 
-// TerminateExecution terminates forcefully the current thread
-// of JavaScript execution in the given isolate.
 func (i *Isolate) TerminateExecution() {
 	C.IsolateTerminateExecution(i.ptr)
 }
 
-// IsExecutionTerminating returns whether V8 is currently terminating
-// Javascript execution. If true, there are still JavaScript frames
-// on the stack and the termination exception is still active.
 func (i *Isolate) IsExecutionTerminating() bool {
 	return C.IsolateIsExecutionTerminating(i.ptr) == 1
 }
@@ -136,11 +113,6 @@ type CompileOptions struct {
 	Mode CompileMode
 }
 
-// CompileUnboundScript will create an UnboundScript (i.e. context-indepdent)
-// using the provided source JavaScript, origin (a.k.a. filename), and options.
-// If options contain a non-null CachedData, compilation of the script will use
-// that code cache.
-// error will be of type `JSError` if not nil.
 func (i *Isolate) CompileUnboundScript(
 	source, origin string,
 	opts CompileOptions,
@@ -151,17 +123,17 @@ func (i *Isolate) CompileUnboundScript(
 	defer C.free(unsafe.Pointer(cOrigin))
 
 	var cOptions C.CompileOptions
+	cOptions.compileOption = C.int(opts.Mode)
 	if opts.CachedData != nil {
 		if opts.Mode != 0 {
 			panic("On CompileOptions, Mode and CachedData can't both be set")
 		}
+
 		cOptions.compileOption = C.ScriptCompilerConsumeCodeCache
 		cOptions.cachedData.length = C.int(len(opts.CachedData.Bytes))
 		if len(opts.CachedData.Bytes) > 0 {
 			cOptions.cachedData.data = (*C.uchar)(unsafe.Pointer(&opts.CachedData.Bytes[0]))
 		}
-	} else {
-		cOptions.compileOption = C.int(opts.Mode)
 	}
 
 	rtn := C.IsolateCompileUnboundScript(i.ptr, cSource, cOrigin, cOptions)
@@ -169,16 +141,17 @@ func (i *Isolate) CompileUnboundScript(
 	if rtn.ptr == nil {
 		return nil, newJSError(rtn.error)
 	}
+
 	if opts.CachedData != nil {
 		opts.CachedData.Rejected = int(rtn.cachedDataRejected) == 1
 	}
+
 	return &UnboundScript{
 		ptr: rtn.ptr,
 		iso: i,
 	}, nil
 }
 
-// GetHeapStatistics returns heap statistics for an isolate.
 func (i *Isolate) GetHeapStatistics() HeapStatistics {
 	hs := C.IsolationGetHeapStatistics(i.ptr)
 
@@ -197,23 +170,13 @@ func (i *Isolate) GetHeapStatistics() HeapStatistics {
 	}
 }
 
-// LowMemoryNotification tells V8 that the system is running low on
-// memory. V8 then performs a full garbage collection, and frees other
-// memory it can, e.g. caches.
 func (i *Isolate) LowMemoryNotification() {
 	C.IsolateLowMemoryNotification(i.ptr)
 }
 
-// WriteHeapSnapshot takes a snapshot of the JavaScript heap and writes it
-// to w, in the JSON format that Chrome DevTools can load (".heapsnapshot"
-// files). Comparing snapshots taken at different times is useful for
-// finding memory leaks. V8 performs a full garbage collection before
-// taking the snapshot.
-//
-// The isolate is locked while the snapshot is written. The returned
-// error is the first error returned by w.
 func (i *Isolate) WriteHeapSnapshot(w io.Writer) error {
 	hw := heapSnapshotWriter{w: w}
+
 	h := cgo.NewHandle(&hw)
 	defer h.Delete()
 
@@ -221,56 +184,47 @@ func (i *Isolate) WriteHeapSnapshot(w io.Writer) error {
 	return hw.err
 }
 
-// heapSnapshotWriter is the state of a WriteHeapSnapshot call.
 type heapSnapshotWriter struct {
 	w   io.Writer
 	err error
 }
 
-// goWriteHeapSnapshotChunk is called by C code for each chunk of a heap
-// snapshot. writerRef is a [cgo.Handle] of a *heapSnapshotWriter. It
-// returns zero to abort the snapshot.
-//
 //export goWriteHeapSnapshotChunk
 func goWriteHeapSnapshotChunk(writerRef C.uintptr_t, data *C.char, size C.int) C.int {
 	hw := cgo.Handle(writerRef).Value().(*heapSnapshotWriter)
 
-	// io.Writer implementations must not retain the slice, so it can
-	// refer to the C memory.
 	n, err := hw.w.Write(unsafe.Slice((*byte)(unsafe.Pointer(data)), int(size)))
 	if err == nil && n < int(size) {
 		err = io.ErrShortWrite
 	}
+
 	if err != nil {
 		hw.err = err
 		return 0
 	}
+
 	return 1
 }
 
-// Dispose will dispose the Isolate VM; subsequent calls will panic.
 func (i *Isolate) Dispose() {
 	if i.ptr == nil {
 		return
 	}
+
 	C.IsolateDispose(i.ptr)
 	i.ptr = nil
 }
 
-// ThrowException schedules an exception to be thrown when returning to
-// JavaScript. When an exception has been scheduled it is illegal to invoke
-// any JavaScript operation; the caller must return immediately and only after
-// the exception has been handled does it become legal to invoke JavaScript operations.
 func (i *Isolate) ThrowException(value *Value) *Value {
 	if i.ptr == nil {
 		panic("Isolate has been disposed")
 	}
+
 	return &Value{
 		ptr: C.IsolateThrowException(i.ptr, value.ptr),
 	}
 }
 
-// Deprecated: use `iso.Dispose()`.
 func (i *Isolate) Close() {
 	i.Dispose()
 }

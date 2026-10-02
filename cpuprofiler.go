@@ -19,7 +19,6 @@ type CPUProfiler struct {
 	iso *Isolate
 }
 
-// CPUProfiler is used to control CPU profiling.
 func NewCPUProfiler(iso *Isolate) *CPUProfiler {
 	profiler := C.NewCPUProfiler(iso.ptr)
 	return &CPUProfiler{
@@ -28,7 +27,6 @@ func NewCPUProfiler(iso *Isolate) *CPUProfiler {
 	}
 }
 
-// Dispose will dispose the profiler.
 func (c *CPUProfiler) Dispose() {
 	if c.p == nil {
 		return
@@ -38,9 +36,6 @@ func (c *CPUProfiler) Dispose() {
 	c.p = nil
 }
 
-// StartProfiling starts collecting a CPU profile. Title may be an empty string. Several
-// profiles may be collected at once. Attempts to start collecting several
-// profiles with the same title are silently ignored.
 func (c *CPUProfiler) StartProfiling(title string) {
 	if c.p == nil || c.iso.ptr == nil {
 		panic("profiler or isolate are nil")
@@ -52,8 +47,6 @@ func (c *CPUProfiler) StartProfiling(title string) {
 	C.CPUProfilerStartProfiling(c.p, tstr)
 }
 
-// Stops collecting CPU profile with a given title and returns it.
-// If the title given is empty, finishes the last profile started.
 func (c *CPUProfiler) StopProfiling(title string) *CPUProfile {
 	if c.p == nil || c.iso.ptr == nil {
 		panic("profiler or isolate are nil")

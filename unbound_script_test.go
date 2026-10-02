@@ -12,10 +12,12 @@ import (
 
 func TestUnboundScriptRun_OnlyInTheSameIsolate(t *testing.T) {
 	str := "function foo() { return 'bar'; }; foo()"
+
 	i1 := v8.NewIsolate()
 	defer i1.Dispose()
 
 	us, err := i1.CompileUnboundScript(str, "script.js", v8.CompileOptions{})
+
 	fatalIf(t, err)
 
 	c1 := v8.NewContext(i1)

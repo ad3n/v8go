@@ -17,6 +17,7 @@ func benchmarkFunctionArgs(count int) []Valuer {
 	for i := range args {
 		args[i] = &Value{}
 	}
+
 	return args
 }
 
@@ -27,6 +28,7 @@ func TestMarshalFunctionArgs(t *testing.T) {
 	if marshalled.ptr == nil || marshalled.pooled == nil {
 		t.Fatal("small argument list did not use pooled storage")
 	}
+
 	marshalled.release()
 }
 
@@ -41,6 +43,7 @@ func TestMarshalFunctionArgsSteadyStateAllocations(t *testing.T) {
 				marshalled := marshalFunctionArgs(args)
 				marshalled.release()
 			})
+
 			if allocations != 0 {
 				t.Fatalf("argument marshalling allocated %v times per run; want zero", allocations)
 			}
@@ -52,8 +55,7 @@ func BenchmarkMarshalFunctionArgs(b *testing.B) {
 	for _, count := range []int{0, 1, 2, pooledFunctionArgs, pooledFunctionArgs + 1, 32} {
 		args := benchmarkFunctionArgs(count)
 		b.Run(fmt.Sprintf("args_%d", count), func(b *testing.B) {
-			// Populate sync.Pool before allocation accounting begins. Pools are an
-			// amortized optimization and may be emptied by any garbage collection.
+
 			warmup := marshalFunctionArgs(args)
 			warmup.release()
 
@@ -67,9 +69,6 @@ func BenchmarkMarshalFunctionArgs(b *testing.B) {
 	}
 }
 
-// BenchmarkMarshalFunctionArgsWithoutPool models the allocation strategy used
-// before functionArgsPool. It is retained as a benchmark-only performance
-// baseline so regressions can be measured against the old behavior.
 func BenchmarkMarshalFunctionArgsWithoutPool(b *testing.B) {
 	for _, count := range []int{1, 2, pooledFunctionArgs} {
 		args := benchmarkFunctionArgs(count)
@@ -80,6 +79,7 @@ func BenchmarkMarshalFunctionArgsWithoutPool(b *testing.B) {
 				for i, arg := range args {
 					storage[i] = unsafe.Pointer(arg.value().ptr)
 				}
+
 				benchmarkFunctionArgsSink = unsafe.Pointer(&storage[0])
 			}
 		})

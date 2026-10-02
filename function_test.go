@@ -19,6 +19,7 @@ func TestFunctionCall(t *testing.T) {
 	defer ctx.Close()
 
 	_, err := ctx.RunScript("function add(a, b) { return a + b; }", "")
+
 	fatalIf(t, err)
 	addValue, err := ctx.Global().Get("add")
 	fatalIf(t, err)
@@ -55,6 +56,7 @@ func TestFunctionCallToGoFunc(t *testing.T) {
 	defer ctx.Close()
 
 	val, err := ctx.RunScript(`(a, b) => { print("foo"); }`, "")
+
 	fatalIf(t, err)
 	fn, err := val.AsFunction()
 	fatalIf(t, err)
@@ -64,6 +66,7 @@ func TestFunctionCallToGoFunc(t *testing.T) {
 	if !called {
 		t.Errorf("expected my function to be called, wasn't")
 	}
+
 	if !resultValue.IsUndefined() {
 		t.Errorf("expected undefined, got: %v", resultValue.DetailString())
 	}
@@ -79,6 +82,7 @@ func TestFunctionCallWithObjectReceiver(t *testing.T) {
 	ctx := v8.NewContext(iso, global)
 	defer ctx.Close()
 	val, err := ctx.RunScript(`class Obj { constructor(input) { this.input = input } print() { return this.input.toString() } }; new Obj("some val")`, "")
+
 	fatalIf(t, err)
 	obj, err := val.AsObject()
 	fatalIf(t, err)
@@ -103,6 +107,7 @@ func TestFunctionCallError(t *testing.T) {
 	defer ctx.Close()
 
 	_, err := ctx.RunScript("function throws() { throw 'error'; }", "script.js")
+
 	fatalIf(t, err)
 	addValue, err := ctx.Global().Get("throws")
 	fatalIf(t, err)
@@ -112,8 +117,10 @@ func TestFunctionCallError(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error, got none")
 	}
+
 	got := *(err.(*v8.JSError))
 	want := v8.JSError{Message: "error", Location: "script.js:1:21"}
+
 	if got != want {
 		t.Errorf("want %+v, got: %+v", want, got)
 	}
@@ -126,6 +133,7 @@ func TestFunctionSourceMapUrl(t *testing.T) {
 	defer ctx.Isolate().Dispose()
 	defer ctx.Close()
 	_, err := ctx.RunScript("function add(a, b) { return a + b; }; //# sourceMappingURL=main.js.map", "main.js")
+
 	fatalIf(t, err)
 	addValue, err := ctx.Global().Get("add")
 	fatalIf(t, err)
@@ -138,6 +146,7 @@ func TestFunctionSourceMapUrl(t *testing.T) {
 	}
 
 	_, err = ctx.RunScript("function sub(a, b) { return a - b; };", "")
+
 	fatalIf(t, err)
 	subValue, err := ctx.Global().Get("sub")
 	fatalIf(t, err)
@@ -172,6 +181,7 @@ func TestFunctionNewInstance(t *testing.T) {
 	if !message.IsString() {
 		t.Error("missing error message")
 	}
+
 	want := "test message"
 	got := message.String()
 	if got != want {
@@ -187,6 +197,7 @@ func TestFunctionNewInstanceError(t *testing.T) {
 	defer ctx.Close()
 
 	_, err := ctx.RunScript("function throws() { throw 'error'; }", "script.js")
+
 	fatalIf(t, err)
 	throwsValue, err := ctx.Global().Get("throws")
 	fatalIf(t, err)
@@ -196,8 +207,10 @@ func TestFunctionNewInstanceError(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error, got none")
 	}
+
 	got := *(err.(*v8.JSError))
 	want := v8.JSError{Message: "error", Location: "script.js:1:21"}
+
 	if got != want {
 		t.Errorf("want %+v, got: %+v", want, got)
 	}

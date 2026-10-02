@@ -34,10 +34,12 @@ func TestPromiseFulfilled(t *testing.T) {
 		thenInfo = info
 		return nil
 	})
+
 	prom1then, _ := prom1thenVal.AsPromise()
 	if prom1then.State() != v8.Pending {
 		t.Errorf("unexpected state for dependent Promise, want Pending got: %v", prom1then.State())
 	}
+
 	if thenInfo != nil {
 		t.Error("unexpected call of Then prior to resolving the promise")
 	}
@@ -56,6 +58,7 @@ func TestPromiseFulfilled(t *testing.T) {
 	if thenInfo == nil {
 		t.Errorf("expected Then to be called, was not")
 	}
+
 	if len(thenInfo.Args()) != 1 || thenInfo.Args()[0].String() != "foo" {
 		t.Errorf("expected promise to be called with [foo] args, was: %+v", thenInfo.Args())
 	}
@@ -99,6 +102,7 @@ func TestPromiseRejected(t *testing.T) {
 	if thenInfo == nil {
 		t.Fatalf("expected Then to be called on already-resolved promise, but was not")
 	}
+
 	if len(thenInfo.Args()) != 1 || thenInfo.Args()[0].String() != val2.String() {
 		t.Fatalf("expected [%v], was: %+v", val2, thenInfo.Args())
 	}
@@ -106,6 +110,7 @@ func TestPromiseRejected(t *testing.T) {
 	if !then2Fulfilled {
 		t.Fatalf("expected call to onFulfilled, got none")
 	}
+
 	if then2Rejected {
 		t.Fatalf("unexpectedly called onRejected")
 	}
@@ -124,6 +129,7 @@ func TestPromiseThenCanThrow(t *testing.T) {
 	promThenVal := res.GetPromise().ThenWithError(func(info *v8.FunctionCallbackInfo) (*v8.Value, error) {
 		return nil, errors.New("faked error")
 	})
+
 	promThen, err := promThenVal.AsPromise()
 	if err != nil {
 		t.Fatalf("AsPromise failed: %v", err)
@@ -154,12 +160,16 @@ func TestPromiseThenPanic(t *testing.T) {
 
 	t.Run("no callbacks", func(t *testing.T) {
 		defer func() { recover() }()
+
 		prom.Then()
 		t.Errorf("expected a panic")
 	})
+
 	t.Run("3 callbacks", func(t *testing.T) {
 		defer func() { recover() }()
+
 		fn := func(_ *v8.FunctionCallbackInfo) *v8.Value { return nil }
+
 		prom.Then(fn, fn, fn)
 		t.Errorf("expected a panic")
 	})

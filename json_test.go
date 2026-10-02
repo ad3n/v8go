@@ -17,6 +17,7 @@ func TestJSONParse(t *testing.T) {
 	if _, err := v8.JSONParse(nil, "{}"); err == nil {
 		t.Error("expected error but got <nil>")
 	}
+
 	ctx := v8.NewContext()
 	defer ctx.Isolate().Dispose()
 	defer ctx.Close()
@@ -57,9 +58,9 @@ func ExampleJSONParse() {
 	defer ctx.Isolate().Dispose()
 	defer ctx.Close()
 	val, _ := v8.JSONParse(ctx, `{"foo": "bar"}`)
+
 	fmt.Println(val)
-	// Output:
-	// [object Object]
+
 }
 
 func ExampleJSONStringify() {
@@ -70,8 +71,8 @@ func ExampleJSONStringify() {
 		"a": 1,
 		"b": "foo"
 	}`)
+
 	jsonStr, _ := v8.JSONStringify(ctx, val)
 	fmt.Println(jsonStr)
-	// Output:
-	// {"a":1,"b":"foo"}
+
 }

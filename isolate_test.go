@@ -31,6 +31,7 @@ func TestIsolateTerminateExecution(t *testing.T) {
 		go func() {
 			iso.TerminateExecution()
 		}()
+
 		loop.Call(v8.Undefined(iso))
 
 		terminating = iso.IsExecutionTerminating()
@@ -44,10 +45,12 @@ func TestIsolateTerminateExecution(t *testing.T) {
 	defer ctx.Close()
 
 	script := `function loop() { while (true) { } }; foo(loop);`
+
 	_, e := ctx.RunScript(script, "forever.js")
 	if e == nil || !strings.HasPrefix(e.Error(), "ExecutionTerminated") {
 		t.Errorf("unexpected error: %v", e)
 	}
+
 	if errors.Is(e, v8.ErrHeapLimitReached) {
 		t.Errorf("error matched ErrHeapLimitReached: %v", e)
 	}
@@ -66,11 +69,13 @@ func TestIsolateCompileUnboundScript(t *testing.T) {
 	defer c1.Close()
 
 	_, err := i1.CompileUnboundScript("invalid js", "filename", v8.CompileOptions{})
+
 	if err == nil {
 		t.Fatal("expected error")
 	}
 
 	us, err := i1.CompileUnboundScript(s, "script.js", v8.CompileOptions{Mode: v8.CompileModeEager})
+
 	fatalIf(t, err)
 
 	val, err := us.Run(c1)
@@ -87,11 +92,13 @@ func TestIsolateCompileUnboundScript(t *testing.T) {
 	defer c2.Close()
 
 	opts := v8.CompileOptions{CachedData: cachedData}
+
 	usWithCachedData, err := i2.CompileUnboundScript(s, "script.js", opts)
 	fatalIf(t, err)
 	if usWithCachedData == nil {
 		t.Fatal("expected unbound script from cached data not to be nil")
 	}
+
 	if opts.CachedData.Rejected {
 		t.Fatal("expected cached data to be used, not rejected")
 	}
@@ -105,11 +112,12 @@ func TestIsolateCompileUnboundScript(t *testing.T) {
 
 func TestIsolateCompileUnboundScript_CachedDataRejected(t *testing.T) {
 	s := "function foo() { return 'bar'; }; foo()"
+
 	iso := v8.NewIsolate()
 	defer iso.Dispose()
 
-	// Try to compile an unbound script using cached data that does not match this source
 	opts := v8.CompileOptions{CachedData: &v8.CompilerCachedData{Bytes: []byte("Math.sqrt(4)")}}
+
 	us, err := iso.CompileUnboundScript(s, "script.js", opts)
 	fatalIf(t, err)
 	if !opts.CachedData.Rejected {
@@ -119,7 +127,6 @@ func TestIsolateCompileUnboundScript_CachedDataRejected(t *testing.T) {
 	ctx := v8.NewContext(iso)
 	defer ctx.Close()
 
-	// Verify that unbound script is still compiled and able to be used
 	val, err := us.Run(ctx)
 	fatalIf(t, err)
 	if val.String() != "bar" {
@@ -135,10 +142,13 @@ func TestIsolateCompileUnboundScript_InvalidOptions(t *testing.T) {
 		CachedData: &v8.CompilerCachedData{Bytes: []byte("unused")},
 		Mode:       v8.CompileModeEager,
 	}
+
 	panicErr := recoverPanic(func() { iso.CompileUnboundScript("console.log(1)", "script.js", opts) })
+
 	if panicErr == nil {
 		t.Error("expected panic")
 	}
+
 	if panicErr != "On CompileOptions, Mode and CachedData can't both be set" {
 		t.Errorf("unexpected panic: %v\n", panicErr)
 	}
@@ -188,7 +198,6 @@ func TestIsolateWriteHeapSnapshot(t *testing.T) {
 		t.Fatalf("WriteHeapSnapshot failed: %v", err)
 	}
 
-	// The format Chrome DevTools reads.
 	var snapshot struct {
 		Snapshot struct {
 			Meta struct {
@@ -199,6 +208,7 @@ func TestIsolateWriteHeapSnapshot(t *testing.T) {
 		Nodes   []int    `json:"nodes"`
 		Strings []string `json:"strings"`
 	}
+
 	if err := json.Unmarshal(buf.Bytes(), &snapshot); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
@@ -206,6 +216,7 @@ func TestIsolateWriteHeapSnapshot(t *testing.T) {
 	if nf := len(snapshot.Snapshot.Meta.NodeFields); nf == 0 || snapshot.Snapshot.NodeCount*nf != len(snapshot.Nodes) {
 		t.Errorf("got %d nodes with %d fields, want %d values", snapshot.Snapshot.NodeCount, nf, len(snapshot.Nodes))
 	}
+
 	found := false
 	for _, s := range snapshot.Strings {
 		if s == "HeapSnapshotMarker" {
@@ -213,6 +224,7 @@ func TestIsolateWriteHeapSnapshot(t *testing.T) {
 			break
 		}
 	}
+
 	if !found {
 		t.Error("HeapSnapshotMarker not found in snapshot strings")
 	}
@@ -225,15 +237,16 @@ func TestIsolateWriteHeapSnapshot_WriterError(t *testing.T) {
 
 	wantErr := errors.New("write failed")
 	w := &failingWriter{err: wantErr}
+
 	if err := iso.WriteHeapSnapshot(w); !errors.Is(err, wantErr) {
 		t.Errorf("WriteHeapSnapshot error: got %v, want %v", err, wantErr)
 	}
+
 	if w.calls != 1 {
 		t.Errorf("Write calls: got %d, want 1", w.calls)
 	}
 }
 
-// failingWriter is an io.Writer that always fails.
 type failingWriter struct {
 	err   error
 	calls int
@@ -255,10 +268,12 @@ func TestCallbackRegistry(t *testing.T) {
 	if cb0 != nil {
 		t.Error("expected callback function to be <nil>")
 	}
+
 	ref1 := iso.RegisterCallback(cb)
 	if ref1 != 1 {
 		t.Errorf("expected callback ref == 1, got %d", ref1)
 	}
+
 	cb1 := iso.GetCallback(1)
 	if fmt.Sprintf("%p", cb1) != fmt.Sprintf("%p", cb) {
 		t.Errorf("unexpected callback function; want %p, got %p", cb, cb1)
@@ -274,9 +289,9 @@ func TestIsolateDispose(t *testing.T) {
 	}
 
 	iso.Dispose()
-	// noop when called multiple times
+
 	iso.Dispose()
-	// deprecated
+
 	iso.Close()
 
 	if iso.GetHeapStatistics().TotalHeapSize != 0 {
@@ -298,15 +313,12 @@ func TestIsolateThrowException(t *testing.T) {
 		}
 	}
 
-	// Function that throws a simple string error from within the function. It is meant
-	// to emulate when an error is returned within Go.
 	fn := v8.NewFunctionTemplate(iso, func(info *v8.FunctionCallbackInfo) *v8.Value {
 		throwError(strErr)
 
 		return nil
 	})
 
-	// Function that is passed a TypeError from JavaScript.
 	fn2 := v8.NewFunctionTemplate(iso, func(info *v8.FunctionCallbackInfo) *v8.Value {
 		typeErr := info.Args()[0]
 
@@ -344,7 +356,7 @@ func BenchmarkIsolateInitialization(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		vm := v8.NewIsolate()
-		vm.Close() // force disposal of the VM
+		vm.Close()
 	}
 }
 
@@ -358,7 +370,7 @@ func BenchmarkIsolateInitAndRun(b *testing.B) {
 		cmd := fmt.Sprintf("process(%s)", str)
 		ctx.RunScript(cmd, "cmd.js")
 		ctx.Close()
-		vm.Close() // force disposal of the VM
+		vm.Close()
 	}
 }
 
@@ -392,13 +404,13 @@ func TestIsolateHeapLimitReached(t *testing.T) {
 
 	limit := iso.GetHeapStatistics().HeapSizeLimit
 
-	// Reaching the limit repeatedly must neither crash the process, nor
-	// raise the limit permanently.
 	for i := 0; i < 3; i++ {
 		_, err := ctx.RunScript(`{ const data = []; for (;;) data.push("x".repeat(1000) + Math.random()); }`, "oom.js")
+
 		if !errors.Is(err, v8.ErrHeapLimitReached) {
 			t.Fatalf("RunScript error: got %v, want ErrHeapLimitReached", err)
 		}
+
 		if !strings.HasPrefix(err.Error(), "ExecutionTerminated") {
 			t.Errorf("RunScript error: got %q, want ExecutionTerminated prefix", err)
 		}
@@ -411,6 +423,7 @@ func TestIsolateHeapLimitReached(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunScript after termination failed: %v", err)
 		}
+
 		if val.Integer() != 42 {
 			t.Errorf("RunScript after termination: got %v, want 42", val)
 		}
@@ -429,16 +442,15 @@ func TestNewIsolateWithConstraints(t *testing.T) {
 	ctx := v8.NewContext(iso)
 	defer ctx.Close()
 
-	// First test - should work fine
 	val, err := ctx.RunScript("1 + 2", "test.js")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
 	if !val.IsNumber() || val.Number() != 3 {
 		t.Errorf("expected 3, got %v", val)
 	}
 
-	// Second test - should run out of memory without crashing the process
 	val, err = ctx.RunScript(`
 			const data = [];
 			for (let i = 0; i < 1000 * 1000; i++) {
@@ -446,9 +458,9 @@ func TestNewIsolateWithConstraints(t *testing.T) {
 			}
 			data.length;
 		`, "memory-test.js")
-	if err != nil {
-		t.Logf("Memory test correctly returned error: %v", err)
-	} else {
+	if err == nil {
 		t.Fatalf("Memory test completed unexpectedly: %v", val)
 	}
+
+	t.Logf("Memory test correctly returned error: %v", err)
 }

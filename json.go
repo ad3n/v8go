@@ -13,24 +13,22 @@ import (
 	"unsafe"
 )
 
-// JSONParse tries to parse the string and returns it as *Value if successful.
-// Any JS errors will be returned as `JSError`.
 func JSONParse(ctx *Context, str string) (*Value, error) {
 	if ctx == nil {
 		return nil, errors.New("v8go: Context is required")
 	}
+
 	cstr := cStringData(str)
 	rtn := C.JSONParseWithLength(ctx.ptr, cstr, C.int(len(str)))
 	runtime.KeepAlive(str)
 	return valueResult(ctx, rtn)
 }
 
-// JSONStringify tries to stringify the JSON-serializable object value and returns it as string.
 func JSONStringify(ctx *Context, val Valuer) (string, error) {
 	if val == nil || val.value() == nil {
 		return "", errors.New("v8go: Value is required")
 	}
-	// If a nil context is passed we'll use the context/isolate that created the value.
+
 	var ctxPtr C.ContextPtr
 	if ctx != nil {
 		ctxPtr = ctx.ptr

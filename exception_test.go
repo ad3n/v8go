@@ -28,6 +28,7 @@ func TestNewError(t *testing.T) {
 		{v8.NewWasmRuntimeError, "RuntimeError"},
 		{v8.NewError, "Error"},
 	}
+
 	for _, tst := range tsts {
 		t.Run(tst.WantType, func(t *testing.T) {
 			iso := v8.NewIsolate()
@@ -37,6 +38,7 @@ func TestNewError(t *testing.T) {
 			if !got.IsNativeError() {
 				t.Error("IsNativeError returned false, want true")
 			}
+
 			if got := got.Error(); !strings.Contains(got, " "+tst.WantType+":") {
 				t.Errorf("Error(): got %q, want containing %q", got, tst.WantType)
 			}

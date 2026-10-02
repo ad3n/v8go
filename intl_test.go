@@ -31,13 +31,12 @@ func TestIntlSupport(t *testing.T) {
 	}
 
 	v, err = ctx.RunScript("new Intl.DateTimeFormat('es', { month: 'long' }).format(new Date(9E8))", "test.js")
+
 	fatalIf(t, err)
 	if v.String() != "enero" {
 		t.Fatalf("expected value to be enero, but was %v", v)
 	}
 
-	// Example from the node.js documentation:
-	// https://github.com/nodejs/node/blob/2e2a6fecd9b1aaffcb932fcc415439f359c84fdd/doc/api/intl.md?plain=1#L175-L183
 	script := `const hasFullICU = (() => {
 try {
 	const january = new Date(9e8);

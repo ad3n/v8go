@@ -11,6 +11,7 @@ type consoleAPIMessage struct {
 	Message    string
 	ErrorLevel v8.MessageErrorLevel
 }
+
 type consoleAPIMessageRecorder struct {
 	messages []consoleAPIMessage
 }
@@ -64,6 +65,7 @@ func (ctx *ContextWithInspector) Dispose() {
 func TestMonitorConsoleLogLevelt(t *testing.T) {
 	t.Parallel()
 	recorder := consoleAPIMessageRecorder{}
+
 	iso := NewIsolateWithInspectorClient(&recorder)
 	defer iso.Dispose()
 	context := iso.NewContext()
@@ -79,6 +81,7 @@ func TestMonitorConsoleLogLevelt(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error occurred", err)
 	}
+
 	actual := recorder.messages
 	expected := []consoleAPIMessage{
 		{Message: "Log msg", ErrorLevel: v8.ErrorLevelLog},
@@ -93,18 +96,10 @@ func TestMonitorConsoleLogLevelt(t *testing.T) {
 	}
 }
 
-// Verify utf-16 conversion. Internally, the strings are represented by a
-// StringView, which is undocumented. Experiements shows that the values
-// returned are an utf-16le encoded array, and a length.
-//
-// The length is assumed to be the size of the array, not the number of
-// characters. This test verifies that, by writing a character that needs
-// several utf-16 elements for endocing.
-//
-// https://v8.github.io/api/head/classv8__inspector_1_1StringView.html
 func TestMonitorConsoleLogWideCharacters(t *testing.T) {
 	t.Parallel()
 	recorder := consoleAPIMessageRecorder{}
+
 	iso := NewIsolateWithInspectorClient(&recorder)
 	defer iso.Dispose()
 	context := iso.NewContext()
@@ -116,6 +111,7 @@ func TestMonitorConsoleLogWideCharacters(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error occurred", err)
 	}
+
 	actual := recorder.messages
 	expected := []consoleAPIMessage{
 		{

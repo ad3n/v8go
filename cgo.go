@@ -6,10 +6,6 @@ package v8go
 
 //go:generate clang-format -i --verbose -style=Chromium v8go.h v8go.cc
 
-// V8 is built with Chromium's libc++, which we must also use. The
-// CGO_CXXFLAGS environment variable must contain -nostdinc++, since it
-// is not allowed in #cgo directives.
-
 // #cgo CXXFLAGS: -fno-rtti -fPIC -std=c++20 -stdlib=libc++ -I${SRCDIR}/deps/include -Wall
 // #cgo CXXFLAGS: -I${SRCDIR}/deps/include_libcxx -I${SRCDIR}/deps/include_libcxxabi
 // #cgo CXXFLAGS: -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE

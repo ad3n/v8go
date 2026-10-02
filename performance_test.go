@@ -11,9 +11,6 @@ import (
 	v8 "github.com/ad3n/v8go"
 )
 
-// These benchmarks model request-time operations separately so production
-// users can identify whether isolate, context, compilation, or data transfer is
-// the dominant cost in their workload.
 func BenchmarkProductionPaths(b *testing.B) {
 	b.Run("RunScript/trivial", func(b *testing.B) {
 		ctx := v8.NewContext()
@@ -25,6 +22,7 @@ func BenchmarkProductionPaths(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+
 			value.Release()
 		}
 	})
@@ -35,9 +33,11 @@ func BenchmarkProductionPaths(b *testing.B) {
 		ctx := v8.NewContext(iso)
 		defer ctx.Close()
 		script, err := iso.CompileUnboundScript("1 + 2", "request.js", v8.CompileOptions{})
+
 		if err != nil {
 			b.Fatal(err)
 		}
+
 		b.ReportAllocs()
 		b.ResetTimer()
 		for b.Loop() {
@@ -45,12 +45,14 @@ func BenchmarkProductionPaths(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+
 			value.Release()
 		}
 	})
 
 	for _, size := range []int{128, 4096, 65536} {
 		payload := `{"data":"` + strings.Repeat("x", size-11) + `"}`
+
 		b.Run("JSONParse/"+benchmarkSize(size), func(b *testing.B) {
 			ctx := v8.NewContext()
 			defer ctx.Isolate().Dispose()
@@ -62,6 +64,7 @@ func BenchmarkProductionPaths(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
+
 				value.Release()
 			}
 		})

@@ -13,8 +13,6 @@ import (
 )
 
 func TestCPUProfileNode(t *testing.T) {
-	// Not parallel: CPU profiles are sampled, and other tests can starve
-	// the profiler enough that short calls, like bar, are missing.
 
 	ctx := v8.NewContext(nil)
 	iso := ctx.Isolate()
@@ -48,6 +46,7 @@ func TestCPUProfileNode(t *testing.T) {
 	if rootNode == nil {
 		t.Fatal("expected top down root not to be nil")
 	}
+
 	count := rootNode.GetChildrenCount()
 	var startNode *v8.CPUProfileNode
 	for i := 0; i < count; i++ {
@@ -55,9 +54,11 @@ func TestCPUProfileNode(t *testing.T) {
 			startNode = rootNode.GetChild(i)
 		}
 	}
+
 	if startNode == nil {
 		t.Fatalf("expected node not to be nil; profile:\n%s", formatProfileNode(rootNode))
 	}
+
 	checkNode(t, startNode, "script.js", "start", 23, 15)
 
 	parentName := startNode.GetParent().GetFunctionName()
@@ -91,9 +92,11 @@ func findChild(t *testing.T, node *v8.CPUProfileNode, functionName string) *v8.C
 			child = node.GetChild(i)
 		}
 	}
+
 	if child == nil {
 		t.Fatalf("failed to find child node %q of %q; profile:\n%s", functionName, node.GetFunctionName(), formatProfileNode(node))
 	}
+
 	return child
 }
 
@@ -103,19 +106,20 @@ func checkNode(t *testing.T, node *v8.CPUProfileNode, scriptResourceName string,
 	if node.GetFunctionName() != functionName {
 		t.Fatalf("expected node to have function name %s, but got %s", functionName, node.GetFunctionName())
 	}
+
 	if node.GetScriptResourceName() != scriptResourceName {
 		t.Fatalf("expected node to have script resource name %s, but got %s", scriptResourceName, node.GetScriptResourceName())
 	}
+
 	if node.GetLineNumber() != line {
 		t.Fatalf("expected node at line %d, but got %d", line, node.GetLineNumber())
 	}
+
 	if node.GetColumnNumber() != column {
 		t.Fatalf("expected node at column %d, but got %d", column, node.GetColumnNumber())
 	}
 }
 
-// formatProfileNode returns the profile tree under node, for diagnosing
-// failures. Profiles are sampled, so tests occasionally miss nodes.
 func formatProfileNode(node *v8.CPUProfileNode) string {
 	var sb strings.Builder
 	var format func(node *v8.CPUProfileNode, depth int)
@@ -125,6 +129,7 @@ func formatProfileNode(node *v8.CPUProfileNode) string {
 			format(node.GetChild(i), depth+1)
 		}
 	}
+
 	format(node, 0)
 	return sb.String()
 }

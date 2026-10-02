@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Ignore leaks within Go standard libraries http/https support code.
-// The getaddrinfo detected leaks can be avoided using GODEBUG=netdns=go but
-// currently there are more for loading system root certificates on macOS.
 //go:build !leakcheck || !darwin
 // +build !leakcheck !darwin
 
@@ -36,8 +33,10 @@ func ExampleFunctionTemplate_fetch() {
 			val, _ := v8.NewValue(iso, string(body))
 			resolver.Resolve(val)
 		}()
+
 		return resolver.GetPromise().Value
 	})
+
 	global.Set("fetch", fetchfn, v8.ReadOnly)
 
 	ctx := v8.NewContext(iso, global)
@@ -45,11 +44,10 @@ func ExampleFunctionTemplate_fetch() {
 	val, _ := ctx.RunScript("fetch('https://rogchap.com/v8go')", "")
 	prom, _ := val.AsPromise()
 
-	// wait for the promise to resolve
 	for prom.State() == v8.Pending {
 		continue
 	}
+
 	fmt.Printf("%s\n", strings.Split(prom.Result().String(), "\n")[0])
-	// Output:
-	// <!DOCTYPE html>
+
 }

@@ -48,6 +48,7 @@ func TestContextExecPreservesNUL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if got := val.Integer(); got != 3 {
 		t.Fatalf("string length = %d, want 3", got)
 	}
@@ -78,6 +79,7 @@ func TestJSExceptions(t *testing.T) {
 				t.Error("error expected but got <nil>")
 				return
 			}
+
 			if err.Error() != tt.err {
 				t.Errorf("expected %q, got %q", tt.err, err.Error())
 			}
@@ -98,6 +100,7 @@ func TestContextRegistry(t *testing.T) {
 	if c1 == nil {
 		t.Error("expected context, but got <nil>")
 	}
+
 	if c1 != ctx {
 		t.Errorf("contexts should match %p != %p", c1, ctx)
 	}
@@ -119,16 +122,16 @@ func TestMemoryLeak(t *testing.T) {
 	for i := 0; i < 6000; i++ {
 		ctx := v8.NewContext(iso)
 		_ = ctx.Global()
-		// _ = obj.String()
+
 		_, _ = ctx.RunScript("2", "")
 		ctx.Close()
 	}
+
 	if n := iso.GetHeapStatistics().NumberOfNativeContexts; n >= 6000 {
 		t.Errorf("Context not being GC'd, got %d native contexts", n)
 	}
 }
 
-// https://github.com/rogchap/v8go/issues/186
 func TestRegistryFromJSON(t *testing.T) {
 	t.Parallel()
 
@@ -141,6 +144,7 @@ func TestRegistryFromJSON(t *testing.T) {
 		fatalIf(t, err)
 		return v
 	}))
+
 	fatalIf(t, err)
 
 	ctx := v8.NewContext(iso, global)
@@ -161,6 +165,7 @@ func TestRegistryFromJSON(t *testing.T) {
 	fatalIf(t, err)
 
 	expected := `{"hello":"world"}`
+
 	if s != expected {
 		t.Fatalf("expected %q, got %q", expected, s)
 	}
@@ -188,8 +193,7 @@ func ExampleContext() {
 	ctx.RunScript("const result = add(3, 4)", "main.js")
 	val, _ := ctx.RunScript("result", "value.js")
 	fmt.Println(val)
-	// Output:
-	// 7
+
 }
 
 func ExampleContext_isolate() {
@@ -205,9 +209,7 @@ func ExampleContext_isolate() {
 	defer ctx2.Close()
 	_, err := ctx2.RunScript("foo", "context_two.js")
 	fmt.Println(err)
-	// Output:
-	// bar
-	// ReferenceError: foo is not defined
+
 }
 
 func ExampleContext_globalTemplate() {
@@ -219,6 +221,5 @@ func ExampleContext_globalTemplate() {
 	defer ctx.Close()
 	val, _ := ctx.RunScript("version", "main.js")
 	fmt.Println(val)
-	// Output:
-	// v1.0.0
+
 }

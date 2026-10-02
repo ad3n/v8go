@@ -21,11 +21,13 @@ func TestValueNewBaseCases(t *testing.T) {
 	if _, err := v8.NewValue(nil, ""); err == nil {
 		t.Error("expected error, but got <nil>")
 	}
+
 	iso := v8.NewIsolate()
 	defer iso.Dispose()
 	if _, err := v8.NewValue(iso, nil); err == nil {
 		t.Error("expected error, but got <nil>")
 	}
+
 	if _, err := v8.NewValue(iso, struct{}{}); err == nil {
 		t.Error("expected error, but got <nil>")
 	}
@@ -55,12 +57,15 @@ func TestValueFormatting(t *testing.T) {
 			if s := fmt.Sprintf("%v", val); s != tt.defaultVerb {
 				t.Errorf("incorrect format for %%v: %s", s)
 			}
+
 			if s := fmt.Sprintf("%+v", val); s != tt.defaultVerbFlag {
 				t.Errorf("incorrect format for %%+v: %s", s)
 			}
+
 			if s := fmt.Sprintf("%s", val); s != tt.stringVerb {
 				t.Errorf("incorrect format for %%s: %s", s)
 			}
+
 			if s := fmt.Sprintf("%q", val); s != tt.quoteVerb {
 				t.Errorf("incorrect format for %%q: %s", s)
 			}
@@ -122,6 +127,7 @@ func TestNewValue(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			fn, err := val.AsFunction()
 			if err != nil {
 				t.Fatal(err)
@@ -136,6 +142,7 @@ func TestNewValue(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if !result.Boolean() {
 				t.Fatal("unexpected result: expected true, got false")
 			}
@@ -267,6 +274,7 @@ func TestValueArrayIndex(t *testing.T) {
 			if ok != tt.ok {
 				t.Errorf("unexpected ok: expected %v, got %v", tt.ok, ok)
 			}
+
 			if idx != tt.idx {
 				t.Errorf("unexpected array index: expected %v, got %v", tt.idx, idx)
 			}
@@ -299,7 +307,7 @@ func TestValueInt32(t *testing.T) {
 		{"Number.NaN", 0},
 		{"2_147_483_647", 1<<31 - 1},
 		{"-2_147_483_648", -1 << 31},
-		{"2_147_483_648", -1 << 31}, // overflow
+		{"2_147_483_648", -1 << 31},
 	}
 
 	for _, tt := range tests {
@@ -338,7 +346,7 @@ func TestValueInteger(t *testing.T) {
 		{"Number.NaN", 0},
 		{"9_007_199_254_740_991", 1<<53 - 1},
 		{"-9_007_199_254_740_991", -(1<<53 - 1)},
-		{"9_223_372_036_854_775_810", 1<<63 - 1}, // does not overflow, pinned at 2^64 -1
+		{"9_223_372_036_854_775_810", 1<<63 - 1},
 	}
 
 	for _, tt := range tests {
@@ -387,8 +395,10 @@ func TestValueNumber(t *testing.T) {
 				if !math.IsNaN(f64) {
 					t.Errorf("unexpected value: expected NaN, got %v", f64)
 				}
+
 				return
 			}
+
 			if f64 != tt.expected {
 				t.Errorf("unexpected value: expected %v, got %v", tt.expected, f64)
 			}
@@ -408,7 +418,7 @@ func TestValueUint32(t *testing.T) {
 	}{
 		{"0", 0},
 		{"1", 1},
-		{"-1", 1<<32 - 1}, // overflow
+		{"-1", 1<<32 - 1},
 	}
 
 	for _, tt := range tests {
@@ -430,7 +440,6 @@ func TestValueBigInt(t *testing.T) {
 	x, _ := new(
 		big.Int,
 	).SetString("36893488147419099136", 10)
-	// larger than a single word size (64bit)
 
 	tests := [...]struct {
 		source   string
@@ -438,7 +447,7 @@ func TestValueBigInt(t *testing.T) {
 	}{
 		{"BigInt(0)", &big.Int{}},
 		{"-1n", big.NewInt(-1)},
-		{"new BigInt(1)", nil}, // bad syntax
+		{"new BigInt(1)", nil},
 		{"BigInt(Number.MAX_SAFE_INTEGER)", big.NewInt(1<<53 - 1)},
 		{"BigInt(Number.MIN_SAFE_INTEGER)", new(big.Int).Neg(big.NewInt(1<<53 - 1))},
 		{"BigInt(Number.MAX_SAFE_INTEGER) * 2n", big.NewInt(1<<54 - 2)},
@@ -457,10 +466,12 @@ func TestValueBigInt(t *testing.T) {
 				t.Errorf("uexpected <nil> value")
 				return
 			}
+
 			if b != nil && tt.expected == nil {
 				t.Errorf("expected <nil>, but got value: %v", b)
 				return
 			}
+
 			if b != nil && b.Cmp(tt.expected) != 0 {
 				t.Errorf("unexpected value: expected %v, got %v", tt.expected, b)
 			}
@@ -479,6 +490,7 @@ func TestValueObject(t *testing.T) {
 	if _, err := val.AsObject(); err == nil {
 		t.Error("Expected error but got <nil>")
 	}
+
 	if obj := val.Object(); obj.String() != "1" {
 		t.Errorf("unexpected object value: %v", obj)
 	}
@@ -497,6 +509,7 @@ func TestValueAsSymbol(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+
 		if want := "Symbol.iterator"; got.Description() != want {
 			t.Errorf("Description: expected %q, but got %q", want, got.Description())
 		}
@@ -521,6 +534,7 @@ func TestValuePromise(t *testing.T) {
 	if _, err := val.AsPromise(); err == nil {
 		t.Error("Expected error but got <nil>")
 	}
+
 	if _, err := ctx.RunScript("new Promise(()=>{})", ""); err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -538,10 +552,12 @@ func TestValueAsException(t *testing.T) {
 	if _, err := val.AsException(); err == nil {
 		t.Error("Expected error but got <nil>")
 	}
+
 	val, err := ctx.RunScript("new Error('foo')", "")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
+
 	if _, err := val.AsException(); err != nil {
 		t.Errorf("Expected success but got: %v", err)
 	}
@@ -559,10 +575,13 @@ func TestValueFunction(t *testing.T) {
 	if _, err := val.AsFunction(); err == nil {
 		t.Error("Expected error but got <nil>")
 	}
+
 	val, err := ctx.RunScript("(a, b) => { return a + b; }", "")
+
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
+
 	if _, err := val.AsFunction(); err != nil {
 		t.Errorf("Expected success but got: %v", err)
 	}
@@ -585,6 +604,7 @@ func TestValueSameValue(t *testing.T) {
 	if obj1.Value.SameValue(obj2.Value) != false {
 		t.Errorf("SameValue on two different values didn't return false")
 	}
+
 	if obj1.Value.SameValue(obj1.Value) != true {
 		t.Errorf("SameValue on two of the same value didn't return true")
 	}
@@ -689,6 +709,7 @@ func TestValueIsXXX(t *testing.T) {
 		{"new SharedArrayBuffer", (*v8.Value).IsSharedArrayBuffer},
 		{"new Proxy({},{})", (*v8.Value).IsProxy},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.source, func(t *testing.T) {
@@ -699,6 +720,7 @@ func TestValueIsXXX(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to run script: %v", err)
 			}
+
 			if !tt.assert(val) {
 				t.Errorf(
 					"value is false for %s",
@@ -731,6 +753,7 @@ func TestValueMarshalJSON(t *testing.T) {
 			"object",
 			func(ctx *v8.Context) *v8.Value {
 				val, _ := ctx.RunScript("let foo = {a:1, b:2}; foo", "test.js")
+
 				return val
 			},
 			[]byte(`{"a":1,"b":2}`),
@@ -739,6 +762,7 @@ func TestValueMarshalJSON(t *testing.T) {
 			"objectFunc",
 			func(ctx *v8.Context) *v8.Value {
 				val, _ := ctx.RunScript("let foo = {a:1, b:()=>{}}; foo", "test.js")
+
 				return val
 			},
 			[]byte(`{"a":1}`),
@@ -813,11 +837,11 @@ func TestValueArrayBufferContents(t *testing.T) {
 		t.Fatalf("expected buf[1] to be 0")
 	}
 
-	// ensure there's an error if we call the method on something that isn't a SharedArrayBuffer
 	val, err = ctx.RunScript("7", "test2.js")
 	if err != nil {
 		t.Fatalf("error running trivial script")
 	}
+
 	_, _, err = val.SharedArrayBufferGetContents()
 	if err == nil {
 		t.Fatalf(
@@ -835,6 +859,7 @@ func TestValueStrictEquals(t *testing.T) {
 	numberTwo, err3 := ctx.RunScript("2", "")
 	stringOne, err4 := ctx.RunScript("'1'", "")
 	function, err5 := ctx.RunScript("const fn = () => {}; fn", "")
+
 	sameFunction, err6 := ctx.RunScript("fn", "")
 	anotherFunction, err7 := ctx.RunScript("const fn2 = () => {}; fn2", "")
 
@@ -845,6 +870,7 @@ func TestValueStrictEquals(t *testing.T) {
 	if !numberOne.StrictEquals(numberOneB) {
 		t.Errorf("Number 1 and Number 1 should be strict equal")
 	}
+
 	if numberOne.StrictEquals(stringOne) {
 		t.Errorf("Number 1 and string '1' should not be strict equal")
 	}

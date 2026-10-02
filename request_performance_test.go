@@ -12,13 +12,11 @@ import (
 	v8 "github.com/ad3n/v8go"
 )
 
-// Each iteration owns a fresh isolate and context, including their cleanup.
-// The workload uses RunScript, string conversion, Function.Call and JSON APIs.
-// It models the request lifecycle, not an application's production trace.
 func BenchmarkFreshRequest(b *testing.B) {
 	for _, calls := range []int{1, 16} {
 		b.Run(fmt.Sprintf("calls_%d", calls), func(b *testing.B) {
 			payload := `{"id":"request","data":"` + strings.Repeat("x", 128) + `"}`
+
 			b.ReportAllocs()
 			for b.Loop() {
 				runFreshRequest(b, payload, "request", calls)
@@ -38,6 +36,7 @@ func runFreshRequest(tb testing.TB, payload, id string, calls int) {
 		globalThis.requestId = id;
 		return {id: globalThis.requestId, data: payload.data};
 	})`, "request.js")
+
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -46,47 +45,50 @@ func runFreshRequest(tb testing.TB, payload, id string, calls int) {
 	if err != nil {
 		tb.Fatal(err)
 	}
+
 	for i := 0; i < calls; i++ {
 		input, err := v8.JSONParse(ctx, payload)
 		if err != nil {
 			tb.Fatal(err)
 		}
+
 		requestID, err := v8.NewValue(iso, id)
 		if err != nil {
 			tb.Fatal(err)
 		}
+
 		result, err := fn.Call(v8.Undefined(iso), input, requestID)
 		input.Release()
 		requestID.Release()
 		if err != nil {
 			tb.Fatal(err)
 		}
+
 		output, err := v8.JSONStringify(ctx, result)
 		result.Release()
 		if err != nil {
 			tb.Fatal(err)
 		}
+
 		if output != payload {
 			tb.Fatalf("request %q: got %q, want %q", id, output, payload)
 		}
 	}
+
 	if retained := ctx.RetainedValueCount(); retained != 1 {
 		tb.Fatalf("retained %d values; want only the function", retained)
 	}
 }
 
-// These isolate the changed operations within a request. They do not model
-// sharing an isolate or context between requests.
 func BenchmarkRequestBoundary(b *testing.B) {
-	// Keep 32/33 in both production APIs: 32 is the Go pool and native inline
-	// storage limit, while 33 exercises both allocation fallbacks. Inputs and
-	// result cleanup are identical for baseline and candidate measurements.
+
 	for _, count := range []int{0, 2, 8, 9, 32, 33} {
 		b.Run(fmt.Sprintf("Call/args_%d", count), func(b *testing.B) {
 			ctx := v8.NewContext()
 			defer ctx.Isolate().Dispose()
 			defer ctx.Close()
 			value, err := ctx.RunScript(`(function() { return arguments.length; })`, "call.js")
+
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -95,26 +97,31 @@ func BenchmarkRequestBoundary(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+
 			args := make([]v8.Valuer, count)
 			for i := range args {
 				args[i] = v8.Undefined(ctx.Isolate())
 			}
+
 			b.ReportAllocs()
 			for b.Loop() {
 				result, err := fn.Call(v8.Undefined(ctx.Isolate()), args...)
 				if err != nil {
 					b.Fatal(err)
 				}
+
 				result.Release()
 			}
 		})
 	}
+
 	for _, count := range []int{8, 9, 32, 33} {
 		b.Run(fmt.Sprintf("NewInstance/args_%d", count), func(b *testing.B) {
 			ctx := v8.NewContext()
 			defer ctx.Isolate().Dispose()
 			defer ctx.Close()
 			value, err := ctx.RunScript(`(function() { this.count = arguments.length; })`, "constructor.js")
+
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -123,25 +130,29 @@ func BenchmarkRequestBoundary(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+
 			args := make([]v8.Valuer, count)
 			for i := range args {
 				args[i] = v8.Undefined(ctx.Isolate())
 			}
+
 			b.ReportAllocs()
 			for b.Loop() {
 				result, err := fn.NewInstance(args...)
 				if err != nil {
 					b.Fatal(err)
 				}
+
 				result.Release()
 			}
 		})
 	}
+
 	for _, size := range []int{0, 128, 4096, 65536} {
 		b.Run(fmt.Sprintf("NewString/bytes_%d", size), func(b *testing.B) {
 			iso := v8.NewIsolate()
 			defer iso.Dispose()
-			// Box outside the loop to distinguish conversion from caller boxing.
+
 			var input any = strings.Repeat("x", size)
 			b.ReportAllocs()
 			b.SetBytes(int64(size))
@@ -150,6 +161,7 @@ func BenchmarkRequestBoundary(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
+
 				value.Release()
 			}
 		})

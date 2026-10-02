@@ -44,6 +44,7 @@ func TestCPUProfile(t *testing.T) {
 	if root == nil {
 		t.Fatal("expected root not to be nil")
 	}
+
 	if root.GetFunctionName() != "(root)" {
 		t.Errorf("expected (root), but got %v", root.GetFunctionName())
 	}
@@ -65,6 +66,6 @@ func TestCPUProfile_Delete(t *testing.T) {
 	cpuProfiler.StartProfiling("cpuprofiletest")
 	cpuProfile := cpuProfiler.StopProfiling("cpuprofiletest")
 	cpuProfile.Delete()
-	// noop when called multiple times
+
 	cpuProfile.Delete()
 }

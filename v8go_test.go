@@ -21,18 +21,19 @@ func TestVersion(t *testing.T) {
 }
 
 func TestSetFlag(t *testing.T) {
-	// Not parallel: V8 flags are process-wide, so --use_strict would
-	// apply to scripts compiled by other tests running at the same time.
+
 	ctx := v8.NewContext()
 	defer ctx.Isolate().Dispose()
 	defer ctx.Close()
 	if _, err := ctx.RunScript("a = 1", "default.js"); err != nil {
 		t.Errorf("expected <nil> error, but got: %v", err)
 	}
+
 	v8.SetFlags("--use_strict")
 	if _, err := ctx.RunScript("b = 1", "use_strict.js"); err == nil {
 		t.Error("expected error but got <nil>")
 	}
+
 	v8.SetFlags("--nouse_strict")
 	if _, err := ctx.RunScript("c = 1", "nouse_strict.js"); err != nil {
 		t.Errorf("expected <nil> error, but got: %v", err)
