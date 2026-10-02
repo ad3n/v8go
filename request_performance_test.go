@@ -78,6 +78,9 @@ func runFreshRequest(tb testing.TB, payload, id string, calls int) {
 // These isolate the changed operations within a request. They do not model
 // sharing an isolate or context between requests.
 func BenchmarkRequestBoundary(b *testing.B) {
+	// Keep 32/33 in both production APIs: 32 is the Go pool and native inline
+	// storage limit, while 33 exercises both allocation fallbacks. Inputs and
+	// result cleanup are identical for baseline and candidate measurements.
 	for _, count := range []int{0, 2, 8, 9, 32, 33} {
 		b.Run(fmt.Sprintf("Call/args_%d", count), func(b *testing.B) {
 			ctx := v8.NewContext()

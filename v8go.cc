@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 
+#include <array>
 #include <cstdlib>
 #include <cstring>
 #include "utils.h"
@@ -497,27 +498,44 @@ ValuePtr PromiseResult(ValuePtr ptr) {
 
 /********** Function **********/
 
-static void buildCallArguments(std::vector<Local<Value>>* out,
-                               Isolate* iso,
-                               ValuePtr* args) {
-  for (size_t i = 0; i < out->size(); ++i) {
-    (*out)[i] = args[i]->ptr.Get(iso);
+// Each invocation owns its storage, including reentrant calls from callbacks.
+// V8 consumes these local handles synchronously; neither storage nor Go's
+// borrowed argument array is retained after the call.
+class FunctionArguments {
+ public:
+  FunctionArguments(Isolate* iso, int argc, ValuePtr* args)
+      : overflow_(argc > kInlineCapacity ? argc : 0) {
+    data_ = argc > kInlineCapacity ? overflow_.data() : inline_.data();
+    for (int i = 0; i < argc; ++i) {
+      data_[i] = args[i]->ptr.Get(iso);
+    }
   }
-}
+
+  Local<Value>* data() { return data_; }
+
+ private:
+  static constexpr int kInlineCapacity = 32;
+  std::array<Local<Value>, kInlineCapacity> inline_;
+  std::vector<Local<Value>> overflow_;
+  Local<Value>* data_;
+};
 
 RtnValue FunctionCall(ValuePtr ptr, ValuePtr recv, int argc, ValuePtr args[]) {
   LOCAL_VALUE(ptr)
 
   RtnValue rtn = {};
   Local<Function> fn = Local<Function>::Cast(value);
-  std::vector<Local<Value>> argv(argc);
-  buildCallArguments(&argv, iso, args);
-
   Local<Value> local_recv = recv->ptr.Get(iso);
 
+  MaybeLocal<Value> maybe_result;
+  if (argc == 0) {
+    maybe_result = fn->Call(local_ctx, local_recv, 0, nullptr);
+  } else {
+    FunctionArguments argv(iso, argc, args);
+    maybe_result = fn->Call(local_ctx, local_recv, argc, argv.data());
+  }
   Local<Value> result;
-  if (!fn->Call(local_ctx, local_recv, argv.size(), argv.data())
-           .ToLocal(&result)) {
+  if (!maybe_result.ToLocal(&result)) {
     rtn.error = ExceptionError(try_catch, iso, local_ctx);
     return rtn;
   }
@@ -534,10 +552,15 @@ RtnValue FunctionNewInstance(ValuePtr ptr, int argc, ValuePtr args[]) {
   LOCAL_VALUE(ptr)
   RtnValue rtn = {};
   Local<Function> fn = Local<Function>::Cast(value);
-  std::vector<Local<Value>> argv(argc);
-  buildCallArguments(&argv, iso, args);
+  MaybeLocal<Object> maybe_result;
+  if (argc == 0) {
+    maybe_result = fn->NewInstance(local_ctx, 0, nullptr);
+  } else {
+    FunctionArguments argv(iso, argc, args);
+    maybe_result = fn->NewInstance(local_ctx, argc, argv.data());
+  }
   Local<Object> result;
-  if (!fn->NewInstance(local_ctx, argv.size(), argv.data()).ToLocal(&result)) {
+  if (!maybe_result.ToLocal(&result)) {
     rtn.error = ExceptionError(try_catch, iso, local_ctx);
     return rtn;
   }

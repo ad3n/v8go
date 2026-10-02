@@ -186,6 +186,7 @@ func TestRequestReentrantCallbackIsolation(t *testing.T) {
 	for worker := 0; worker < 8; worker++ {
 		t.Run(fmt.Sprintf("worker_%d", worker), func(t *testing.T) {
 			t.Parallel()
+			count := []int{1, 8, 9, 31, 32, 33, 64, 256}[worker]
 			iso := v8.NewIsolate()
 			defer iso.Dispose()
 			id := fmt.Sprintf("callback-%d", worker)
@@ -194,7 +195,7 @@ func TestRequestReentrantCallbackIsolation(t *testing.T) {
 			var inner *v8.Function
 			callback := v8.NewFunctionTemplate(iso, func(info *v8.FunctionCallbackInfo) *v8.Value {
 				defer info.Release()
-				if info.Context() != ctx || len(info.Args()) != 8 {
+				if info.Context() != ctx || len(info.Args()) != count {
 					t.Error("callback received a different request context or argument count")
 					return nil
 				}
@@ -243,8 +244,11 @@ func TestRequestReentrantCallbackIsolation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer arg.Release()
-			args := []v8.Valuer{arg, arg, arg, arg, arg, arg, arg, arg}
-			want := strings.TrimSuffix(strings.Repeat(id+"|", 8), "|")
+			args := make([]v8.Valuer, count)
+			for i := range args {
+				args[i] = arg
+			}
+			want := strings.TrimSuffix(strings.Repeat(id+"|", count), "|")
 			retained := ctx.RetainedValueCount()
 			for i := 0; i < 32; i++ {
 				result, err := outer.Call(v8.Undefined(iso), args...)
