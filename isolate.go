@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"io"
+	"runtime"
 	"runtime/cgo"
 	"sync"
 	"unsafe"
