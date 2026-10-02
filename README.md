@@ -294,11 +294,11 @@ Each architecture is a separate job, storing build artifacts that are picked up 
 This job updates the master branch.
 Then it runs `syncsubdeps`.
 
-The [syncsubdeps](https://github.com/ad3n/v8go/.github/workflow/syncsubdeps.yml) workflow updates the `go.mod` file to point to the new commit.
-Each architecture in `deps/` is its own Go module.
-This is needed to work around size constraints in Go module handling due to the large libv8 files.
-But we still want them to be consistent across builds, something that needs to happen after the built files have been committed.
-Once this is done, the upgrade is complete.
+The `syncsubdeps` job tidies `go.mod` after the native libraries are committed.
+The root package links the archives directly from `deps/`, so this job does
+not add remote platform dependencies. The nested platform module boundaries
+are retained to keep the large archives out of the root Go module download;
+local builds use the full checkout as described above.
 
 Releasing the library is a matter of running the [release](https://github.com/ad3n/v8go/.github/workflow/release.yml) workflow.
 It reads `CHANGELOG.md`, creates a Git tag and a GitHub release.

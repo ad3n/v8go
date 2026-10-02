@@ -3,5 +3,10 @@
 
 package v8go
 
-// Ensure the appropriate cgo library is pulled in.
-import _ "github.com/ad3n/v8go/deps/android_amd64"
+// Link the native libraries bundled with this checkout directly.
+
+// #cgo LDFLAGS: -pthread -L${SRCDIR}/deps/android_amd64
+// #cgo LDFLAGS: -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -lv8-3 -lc++-cr -lc++abi-cr -Wl,--end-group
+// #cgo libgcompat LDFLAGS: -lgcompat
+// #cgo linux LDFLAGS: -ldl
+import "C"
