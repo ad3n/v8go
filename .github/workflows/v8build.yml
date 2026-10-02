@@ -2,6 +2,15 @@ name: V8 Build
 
 on:
   workflow_dispatch:
+    inputs:
+      v8_hash:
+        description: The V8 commit hash to build at. Defaults to the previously built version.
+        required: false
+        type: string
+      depot_tools_hash:
+        description: The depot_tools commit hash to build with. Defaults to the deps/depot_tools submodule.
+        required: false
+        type: string
   workflow_call:
     inputs:
       sha:
@@ -12,6 +21,10 @@ on:
         description: The V8 commit hash to build at. Defaults to the previously built version.
         required: false
         type: string
+      depot_tools_hash:
+        description: The depot_tools commit hash to build with. Defaults to the deps/depot_tools submodule.
+        required: false
+        type: string
     outputs:
       committed:
         description: Whether built files were comitted.
@@ -20,15 +33,20 @@ on:
         description: The resulting SHA commitish.
         value: ${{ jobs.syncsubdeps.outputs.sha }}
 
+env:
+  # depot_tools is pinned, and upgraded by the V8 Upgrade workflow.
+  DEPOT_TOOLS_UPDATE: '0'
+
 jobs:
   build_common:
     name: Build Architecture Independent Files
     runs-on: ubuntu-latest
     outputs:
       v8_hash: ${{ steps.update_v8.outputs.v8_hash }}
+      depot_tools_hash: ${{ steps.depot_tools.outputs.hash }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: true
         fetch-depth: 1
@@ -54,16 +72,44 @@ jobs:
           done
         fi
 
+    - id: depot_tools
+      name: Resolve depot_tools
+      run: |
+        hash="${{ inputs.depot_tools_hash }}"
+        echo "hash=${hash:-$(git rev-parse HEAD:deps/depot_tools)}" >>"$GITHUB_OUTPUT"
+
+    - uses: ./.github/actions/checkout-depot-tools
+      with:
+        hash: ${{ steps.depot_tools.outputs.hash }}
+
     - name: Create include files
       run: cd deps && ./build_common.py
 
     - name: Upload include/ Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         # The name matches the directory under deps/.
         name: include
         if-no-files-found: error
         path: deps/include/
+        retention-days: 2
+
+    - name: Upload include_libcxx/ Artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        # The name matches the directory under deps/.
+        name: include_libcxx
+        if-no-files-found: error
+        path: deps/include_libcxx/
+        retention-days: 2
+
+    - name: Upload include_libcxxabi/ Artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        # The name matches the directory under deps/.
+        name: include_libcxxabi
+        if-no-files-found: error
+        path: deps/include_libcxxabi/
         retention-days: 2
 
   build:
@@ -83,10 +129,6 @@ jobs:
           platform: macos-latest
     runs-on: ${{ matrix.platform }}
     steps:
-    - name: Install g++-aarch64-linux-gnu
-      if: matrix.os == 'linux' && matrix.arch == 'arm64'
-      run: sudo apt update && sudo apt install g++-aarch64-linux-gnu -y
-
     - name: Install setuptools
       if: matrix.platform == 'macos-latest'
       run: python3 -m pip install --upgrade setuptools
@@ -111,7 +153,7 @@ jobs:
         echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: true
         fetch-depth: 1
@@ -142,24 +184,20 @@ jobs:
         echo "CCACHE_SLOPPINESS=time_macros" >> "$GITHUB_ENV"
 
     - name: Restore CCache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.ccache
-        key: libv8:ccache:${{ matrix.os }}:${{ matrix.arch }}:${{ hashFiles('deps/v8_hash') }}:${{ runner.os }}
+        # Keyed on what is being built, since a cache is only saved if
+        # the key didn't match exactly. ccache itself is content
+        # addressed, so any older cache is a useful fallback.
+        key: libv8:ccache:${{ runner.os }}:${{ matrix.os }}:${{ matrix.arch }}:${{ needs.build_common.outputs.v8_hash }}:${{ hashFiles('deps/build.py', 'patches/*.patch') }}
         restore-keys: |
-          libv8:ccache:${{ matrix.os }}:${{ matrix.arch }}:
-          ${{ runner.os }}:${{ matrix.os }}:${{ matrix.arch }}:libv8:ccache
+          libv8:ccache:${{ runner.os }}:${{ matrix.os }}:${{ matrix.arch }}:${{ needs.build_common.outputs.v8_hash }}:
+          libv8:ccache:${{ runner.os }}:${{ matrix.os }}:${{ matrix.arch }}:
 
-    - name: Restore V8 Build Cache
-      uses: actions/cache@v4
+    - uses: ./.github/actions/checkout-depot-tools
       with:
-        path: deps/v8/build
-        key: libv8:v8build:${{ matrix.os }}:${{ matrix.arch }}:${{ hashFiles('deps/v8_hash') }}:${{ runner.os }}
-        restore-keys: |
-          libv8:v8build:${{ matrix.os }}:${{ matrix.arch }}:
-
-    - name: Update depot_tools fetch config
-      run: cd deps/depot_tools && git config --unset-all remote.origin.fetch; git config --add remote.origin.fetch +refs/heads/*:refs/remotes/origin/*
+        hash: ${{ needs.build_common.outputs.depot_tools_hash }}
 
     - name: Build V8 (${{ matrix.os }})
       run: cd deps && ./build.py --ccache --verbose --arch ${{ matrix.arch }} --os ${{ matrix.os }}
@@ -168,7 +206,7 @@ jobs:
       run: ccache -s
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         # The name matches the directory under deps/.
         name: ${{ matrix.os }}_${{ matrix.arch }}
@@ -187,7 +225,7 @@ jobs:
       sha: ${{ steps.create_summary.outputs.sha }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: true
         fetch-depth: 1
@@ -208,11 +246,19 @@ jobs:
         git checkout "${latest_v8_version:-$latest_v8_hash}"
         echo "latest_v8_version=${latest_v8_version:-$latest_v8_hash}" >>"$GITHUB_OUTPUT"
 
-    - name: Remove old static libraries
-      run: "find deps -maxdepth 2 -type f -name libmanifest | xargs -rn1 dirname | xargs -r rm -fr"
+    - name: Update depot_tools
+      uses: ./.github/actions/checkout-depot-tools
+      with:
+        hash: ${{ needs.build_common.outputs.depot_tools_hash }}
+        bootstrap: 'false'
+
+    - name: Remove old generated files
+      run: |
+        find deps -maxdepth 2 -type f -name libmanifest | xargs -rn1 dirname | xargs -r rm -fr
+        rm -fr deps/include deps/include_libcxx deps/include_libcxxabi
 
     - name: Download Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         path: deps
 
@@ -229,14 +275,17 @@ jobs:
 
     - id: commit
       name: Commit
-      uses: EndBug/add-and-commit@v9
+      uses: EndBug/add-and-commit@v11
       with:
         add: |
           - cgo.go
           - CHANGELOG.md
-          - deps/*_*/libv8*.a
+          - deps/*_*/cgo.go
+          - deps/*_*/lib*.a
           - deps/*_*/libmanifest
           - deps/include/**
+          - deps/include_libcxx/**
+          - deps/include_libcxxabi/**
           - deps/depot_tools
           - deps/v8
           - deps/v8_hash
@@ -257,7 +306,12 @@ jobs:
 
         echo "V8 Commit: $(<deps/v8_hash)" >>"$GITHUB_STEP_SUMMARY"
         echo "V8 Version: ${{ steps.update_v8.outputs.latest_v8_version }}" >>"$GITHUB_STEP_SUMMARY"
+<<<<<<< HEAD
         echo "Commit: https://github.com/ad3n/v8go/commit/$commit_sha" >>"$GITHUB_STEP_SUMMARY"
+=======
+        echo "depot_tools Commit: ${{ needs.build_common.outputs.depot_tools_hash }}" >>"$GITHUB_STEP_SUMMARY"
+        echo "Commit: https://github.com/tommie/v8go/commit/$commit_sha" >>"$GITHUB_STEP_SUMMARY"
+>>>>>>> 5cc0d13d809a99e2b93589cfdefae2482d4d5ef6
 
         echo "sha=$commit_sha" >>"$GITHUB_OUTPUT"
 
@@ -277,7 +331,7 @@ jobs:
       sha: ${{ steps.create_summary.outputs.sha }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         # Our git log in deps/ requires an arbitrarily deep history.
         fetch-depth: 0
@@ -312,7 +366,7 @@ jobs:
 
     - id: commit
       name: Commit
-      uses: EndBug/add-and-commit@v9
+      uses: EndBug/add-and-commit@v11
       with:
         add: |
           go.mod

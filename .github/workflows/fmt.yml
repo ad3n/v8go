@@ -13,15 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 1
+
+    - name: Set Up Clang
+      uses: ./.github/actions/setup-clang
 
     - name: go fmt
       run: go fmt
 
     - name: go vet
       run: go vet
+      env:
+        CGO_CXXFLAGS: "-nostdinc++"
 
     - name: go generate (clang-format)
       run: go generate
