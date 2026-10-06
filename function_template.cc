@@ -16,7 +16,9 @@ void FunctionTemplateCallback(const FunctionCallbackInfo<Value>& info) {
   // at runtime. We extract the Context reference from the embedder data so that
   // we can use the context registry to match the Context on the Go side
   Local<Context> local_ctx = iso->GetCurrentContext();
-  int ctx_ref = local_ctx->GetEmbedderDataV2(1).As<Integer>()->Value();
+  int ctx_ref = local_ctx->GetEmbedderDataV2(ContextDataIndex::REF)
+                    .As<Integer>()
+                    ->Value();
   m_ctx* ctx = goContext(ctx_ref);
 
   int callback_ref = info.Data().As<Integer>()->Value();
@@ -38,8 +40,8 @@ void FunctionTemplateCallback(const FunctionCallbackInfo<Value>& info) {
     thisAndArgs[i] = tracked_value(ctx, val);
   }
 
-  goFunctionCallback_return retval =
-      goFunctionCallback(ctx_ref, callback_ref, thisAndArgs.data(), thisAndArgs.size() - 1);
+  goFunctionCallback_return retval = goFunctionCallback(
+      ctx_ref, callback_ref, thisAndArgs.data(), thisAndArgs.size() - 1);
   if (retval.r1 != nullptr) {
     iso->ThrowException(retval.r1->ptr.Get(iso));
   } else if (retval.r0 != nullptr) {

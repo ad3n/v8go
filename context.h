@@ -13,6 +13,7 @@
 #include "value.h"
 
 namespace v8 {
+class Value;
 class Isolate;
 class Context;
 }  // namespace v8
@@ -20,16 +21,26 @@ class Context;
 typedef v8::Isolate v8Isolate;
 typedef struct m_unboundScript m_unboundScript;
 
+// ContextDataIndex defines the indexes for "embedder data".
+enum ContextDataIndex {
+  // We start at 1, as slot 0 has special meaning for the Chrome debugger
+
+  // Is an integer "handle" created in Go code, so given a specific V8 context,
+  // Go code can find its corresponding *Context value.
+  REF = 1,
+};
+
 struct m_ctx {
   v8::Isolate* iso;
   std::unordered_map<long, m_value*> vals;
   std::vector<m_unboundScript*> unboundScripts;
   v8::Persistent<v8::Context> ptr;
-  long nextValId;
+  long nextValId = 0;
 };
 typedef m_ctx* ContextPtr;
 
 extern m_value* tracked_value(m_ctx* ctx, m_value* val);
+extern m_value* track_value(m_ctx* ctx, v8::Local<v8::Value> val);
 
 extern "C" {
 #else
