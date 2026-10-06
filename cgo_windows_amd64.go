@@ -3,5 +3,11 @@
 
 package v8go
 
-// Ensure the appropriate cgo library is pulled in.
-import _ "github.com/tommie/v8go/deps/windows_amd64"
+// Link the native libraries bundled with this checkout directly.
+
+// #cgo !windows LDFLAGS: -pthread
+// #cgo LDFLAGS: -L${SRCDIR}/deps/windows_amd64
+// #cgo LDFLAGS: -lv8-0 -lv8-1 -lv8-2 -lv8-3 -lv8-4 -lv8-5 -lv8-6 -lc++-cr -llibcmt -llibvcruntime -llibucrt -loldnames -ldbghelp -lwinmm -lshlwapi -ladvapi32
+// #cgo libgcompat LDFLAGS: -lgcompat
+// #cgo linux LDFLAGS: -ldl
+import "C"

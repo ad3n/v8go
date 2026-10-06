@@ -19,24 +19,19 @@ cd "$work"
 cat >go.mod <<EOF
 module example.com/vendortest
 
-go 1.19
+go 1.26
 
-require github.com/tommie/v8go v0.0.0
+require github.com/ad3n/v8go v0.0.0
 
-replace github.com/tommie/v8go => $src
+replace github.com/ad3n/v8go => $src
 EOF
-for dir in "$src"/deps/*_*/; do
-	[ -f "$dir/go.mod" ] || continue
-	echo "replace github.com/tommie/v8go/deps/$(basename "$dir") => $dir" >>go.mod
-done
-
 cat >main.go <<'EOF'
 package main
 
 import (
 	"fmt"
 
-	v8 "github.com/tommie/v8go"
+	v8 "github.com/ad3n/v8go"
 )
 
 func main() {
@@ -54,13 +49,25 @@ EOF
 
 go mod tidy
 go mod vendor
+"$src/tools/copy_vendor_deps.sh" "$work/vendor/github.com/ad3n/v8go"
 
 # Fail early with a clear message, rather than a compiler error.
 for f in deps/include/v8-template.h deps/include/cppgc/internal/api-constants.h deps/include_libcxx/vector deps/include_libcxx/__config_site deps/include_libcxxabi/cxxabi.h; do
-	if [ ! -f "vendor/github.com/tommie/v8go/$f" ]; then
+	if [ ! -f "vendor/github.com/ad3n/v8go/$f" ]; then
 		echo "$f was not vendored" >&2
 		exit 1
 	fi
+done
+
+for dir in "$src"/deps/*_*/; do
+	[ -f "$dir/libmanifest" ] || continue
+	for archive in "$dir"/*.a "$dir"/*.lib; do
+		[ -f "$archive" ] || continue
+		if [ ! -f "vendor/github.com/ad3n/v8go/deps/$(basename "$dir")/$(basename "$archive")" ]; then
+			echo "$archive was not vendored" >&2
+			exit 1
+		fi
+	done
 done
 
 out=$(go run -mod=vendor .)

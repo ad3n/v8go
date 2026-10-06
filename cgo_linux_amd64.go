@@ -5,7 +5,8 @@ package v8go
 
 // Link the native libraries bundled with this checkout directly.
 
-// #cgo LDFLAGS: -pthread -L${SRCDIR}/deps/linux_amd64
+// #cgo !windows LDFLAGS: -pthread
+// #cgo LDFLAGS: -L${SRCDIR}/deps/linux_amd64
 // #cgo LDFLAGS: -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -lv8-3 -lc++-cr -lc++abi-cr -lclang_rt.builtins-cr -Wl,--end-group
 // #cgo libgcompat LDFLAGS: -lgcompat
 // #cgo linux LDFLAGS: -ldl

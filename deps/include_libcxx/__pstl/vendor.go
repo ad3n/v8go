@@ -4,6 +4,6 @@
 package __pstl
 
 import (
-	_ "github.com/tommie/v8go/deps/include_libcxx/__pstl/backends"
-	_ "github.com/tommie/v8go/deps/include_libcxx/__pstl/cpu_algos"
+	_ "github.com/ad3n/v8go/deps/include_libcxx/__pstl/backends"
+	_ "github.com/ad3n/v8go/deps/include_libcxx/__pstl/cpu_algos"
 )

@@ -330,8 +330,6 @@ jobs:
           - cgo.go
           - cgo_*.go
           - CHANGELOG.md
-          - deps/*_*/cgo.go
-          - deps/*_*/go.mod
           - deps/*_*/lib*.a
           - deps/*_*/*.lib
           - deps/*_*/libmanifest
@@ -389,7 +387,7 @@ jobs:
       name: Extract Information
       run: |
         set -o pipefail
-        submods=( $(ls deps/*_*/cgo.go | xargs -r dirname) )
+        submods=( $(ls deps/*_*/libmanifest | xargs -r dirname) )
 
         # This is the latest commit affecting any file in the submodules.
         # Thus, this workflow is idempotent.
@@ -403,8 +401,7 @@ jobs:
       # Submodules shouldn't cause a download.
       # TODO: figure out why this isn't enough.
       run: |
-        submods=( ${{ steps.info.outputs.submodules }} )
-        go work init . "${submods[@]}"
+        go work init .
 
     - name: Update go.mod
       run: |
