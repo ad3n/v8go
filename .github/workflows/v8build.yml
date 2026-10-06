@@ -402,12 +402,16 @@ jobs:
       # TODO: figure out why this isn't enough.
       run: |
         go work init .
+        for module in deps/*_*/go.mod; do
+          go work use "${module%/go.mod}"
+        done
 
     - name: Update go.mod
       run: |
-        # Native archives are linked directly from deps/; do not reintroduce
-        # remote submodule requirements after rebuilding them.
-        go mod tidy
+        for submod in ${{ steps.info.outputs.submodules }}; do
+          GOWORK=off go get "github.com/ad3n/v8go/$submod@${{ steps.info.outputs.sha }}"
+        done
+        GOWORK=off go mod tidy
 
     - id: commit
       name: Commit

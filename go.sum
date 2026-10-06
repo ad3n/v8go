@@ -1,0 +1,14 @@
+github.com/ad3n/v8go/deps/android_amd64 v1.1.5 h1:vV/vyvnC9M7o+XQViw24MbS8KotD+SYfUXyaTs45nYU=
+github.com/ad3n/v8go/deps/android_amd64 v1.1.5/go.mod h1:/rOF0H0GcL/jEU2LBFOTCMX63F7KtF34t6kG43Z54gs=
+github.com/ad3n/v8go/deps/android_arm64 v1.1.5 h1:mwiQpYww99dQxWjwGNUxkEAq1U8LTlPAnseVokXza+k=
+github.com/ad3n/v8go/deps/android_arm64 v1.1.5/go.mod h1:lwh2W4S1AxmNyleeKtJXazTEDncXI53NRHk8pzmqCyk=
+github.com/ad3n/v8go/deps/darwin_amd64 v1.1.5 h1:gfh047UgibqDFnXcf66qQYUc9LVgPYnm+eBDzrNEXPQ=
+github.com/ad3n/v8go/deps/darwin_amd64 v1.1.5/go.mod h1:P/9yXh5kC8N6uRHmZcYQWqWEsUV5QYzl5pab1CfeSts=
+github.com/ad3n/v8go/deps/darwin_arm64 v1.1.5 h1:dj0zbywaDVEyIZFGXzZ5hhuw4vdbHs9Tp0CfSK5fq+U=
+github.com/ad3n/v8go/deps/darwin_arm64 v1.1.5/go.mod h1:1hHUssCYYXdCObmpIcOUFFHvvQTIxOX2QLVeFmN7Nq4=
+github.com/ad3n/v8go/deps/linux_amd64 v1.1.5 h1:rKHB/cMeNQzTvnN+ULz/j7etRWpviNmFmLzaaZyLPlw=
+github.com/ad3n/v8go/deps/linux_amd64 v1.1.5/go.mod h1:J+Vu/qz6xNIGGKF+fAoQXMGOtK2I6ZQKDNMQCXejax4=
+github.com/ad3n/v8go/deps/linux_arm64 v1.1.5 h1:8FtJFyDaHF2blPBV1cCKJmpwwP4Jy+s9aLgGxO5li88=
+github.com/ad3n/v8go/deps/linux_arm64 v1.1.5/go.mod h1:o1x8zMqvxdE4I/e+0sK6jfG0+EM/rcM9RNoWp4uUrc8=
+github.com/ad3n/v8go/deps/windows_amd64 v1.1.5 h1:ODRRMxq4u5Z3uE+ILy7wzKEWWDcNb+KryO8W0fG9rM8=
+github.com/ad3n/v8go/deps/windows_amd64 v1.1.5/go.mod h1:27FXLv381xedsMAXoYuJFYOQL1qKJcD+Cw8+j5UFcrE=

@@ -14,3 +14,5 @@ c.out
 go.work
 .idea/*
 /v8go.test
+
+__pycache__/

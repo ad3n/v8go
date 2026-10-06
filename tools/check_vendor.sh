@@ -25,6 +25,10 @@ require github.com/ad3n/v8go v0.0.0
 
 replace github.com/ad3n/v8go => $src
 EOF
+for dir in "$src"/deps/*_*/; do
+    [ -f "$dir/go.mod" ] || continue
+    go mod edit "-replace=github.com/ad3n/v8go/deps/$(basename "$dir")=$dir"
+done
 cat >main.go <<'EOF'
 package main
 
@@ -49,7 +53,6 @@ EOF
 
 go mod tidy
 go mod vendor
-"$src/tools/copy_vendor_deps.sh" "$work/vendor/github.com/ad3n/v8go"
 
 # Fail early with a clear message, rather than a compiler error.
 for f in deps/include/v8-template.h deps/include/cppgc/internal/api-constants.h deps/include_libcxx/vector deps/include_libcxx/__config_site deps/include_libcxxabi/cxxabi.h; do

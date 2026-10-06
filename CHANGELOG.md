@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document that `CPUProfiler.StartProfiling` requires JavaScript to execute on the calling OS thread. V8 only samples that thread, so the profile silently missed samples when Go moved the goroutine to another thread.
 
 ### Fixed
+- Package native archives as platform modules under `github.com/ad3n/v8go/deps/` so Go downloads stay below the 500 MiB module limit and vendored builds include the archives.
 - `CPUProfile.GetDuration` was 1000 times too long, since V8's microseconds were read as milliseconds.
 - `go mod vendor` copies the V8 and libc++ header files, so vendored builds work again. In [#116](https://github.com/tommie/v8go/issues/116).
 

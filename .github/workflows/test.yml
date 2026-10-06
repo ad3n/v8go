@@ -69,6 +69,9 @@ jobs:
       run: |
         set -o pipefail
         go work init .
+        for module in deps/*_*/go.mod; do
+          go work use "${module%/go.mod}"
+        done
 
     - name: Run Tests With Coverage
       run: go test -v -coverprofile coverage.out ./...

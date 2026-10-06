@@ -314,11 +314,26 @@ Each architecture is a separate job, storing build artifacts that are picked up 
 This job updates the master branch.
 Then it runs `syncsubdeps`.
 
-The `syncsubdeps` job tidies `go.mod` after the native libraries are committed.
-The root package links the archives directly from `deps/`, so this job does
-not add remote platform dependencies. The nested platform module boundaries
-are retained to keep the large archives out of the root Go module download;
-local builds use the full checkout as described above.
+The native archives are separate Go modules under `github.com/ad3n/v8go/deps/`,
+one per platform. This keeps each module below Go's 500 MiB download limit.
+The root package imports the matching platform module, which supplies its
+linker flags. The `syncsubdeps` job pins these modules to the native build commit.
+For local development, use a workspace with the checked-out archives:
+
+```sh
+go work init .
+for module in deps/*_*/go.mod; do
+  go work use "${module%/go.mod}"
+done
+```
+
+Vendoring includes the native archives through these imports;
+no manual copying is required.
+
+The Vendor Check workflow runs `python3 tools/check_modules.py` to check the
+module size limits and build a consumer through an offline file proxy, both
+before and after `go mod vendor`, without local replacements. The Release
+workflow tags the platform modules before publishing the root module.
 
 Releasing the library is a matter of running the [release](https://github.com/ad3n/v8go/.github/workflow/release.yml) workflow.
 It reads `CHANGELOG.md`, creates a Git tag and a GitHub release.
