@@ -7,15 +7,12 @@
 
 #ifdef __cplusplus
 
-// If we could forward declare v8::ScriptCompiler::CachedData, we wouldn't need
-// this include. But appears not to be possible.
-// https://stackoverflow.com/a/1021809/158483
 #include "deps/include/v8-script.h"
 
 namespace v8 {
 class UnboundScript;
 class Isolate;
-}  // namespace v8
+}
 
 struct m_unboundScript {
   v8::Persistent<v8::UnboundScript> ptr;
@@ -62,6 +59,6 @@ extern void ScriptCompilerCachedDataDelete(
 extern RtnValue UnboundScriptRun(ContextPtr ctx_ptr, UnboundScriptPtr us_ptr);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 #endif

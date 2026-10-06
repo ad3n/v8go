@@ -7,7 +7,7 @@
 namespace v8 {
 class Isolate;
 class Template;
-}  // namespace v8
+}
 
 struct m_template {
   v8::Isolate* iso;
@@ -24,6 +24,6 @@ typedef struct m_template m_template;
 typedef m_template* TemplatePtr;
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 #endif

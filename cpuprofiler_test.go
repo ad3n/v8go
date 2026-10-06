@@ -64,8 +64,6 @@ func TestCPUProfiler_DoPanic(t *testing.T) {
 		t.Fatal("expected panic")
 	}
 
-	// Had the panic left the first profile running, StartProfiling would
-	// ignore the duplicate title, and this profile would start before the sleep.
 	time.Sleep(100 * time.Millisecond)
 	cpuProfile := cpuProfiler.Do(title, func() {})
 	defer cpuProfile.Delete()

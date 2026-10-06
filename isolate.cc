@@ -15,10 +15,8 @@ using namespace v8;
 auto default_platform = platform::NewDefaultPlatform();
 ArrayBuffer::Allocator* default_allocator;
 
-// Forwards heap snapshot chunks to a Go io.Writer.
 class GoOutputStream : public OutputStream {
  public:
-  // writerRef is a cgo.Handle used by goWriteHeapSnapshotChunk.
   explicit GoOutputStream(uintptr_t writerRef) : writerRef_(writerRef) {}
 
   int GetChunkSize() override { return 64 * 1024; }
@@ -36,15 +34,9 @@ class GoOutputStream : public OutputStream {
 
 extern "C" {
 
-/********** Isolate **********/
-
-// Per-isolate state, in data slot 1. Slot 0 holds the internal context.
 struct IsolateState {
-  // Set when NearMemoryLimitCallback terminates execution, and cleared
-  // when the termination is reported.
   bool heap_limit_reached = false;
 
-  // Whether errors include a serialized exception message.
   bool exception_messages = false;
 };
 
@@ -74,8 +66,6 @@ size_t NearMemoryLimitCallback(void* data,
   state->heap_limit_reached = true;
   iso->TerminateExecution();
 
-  // if we return the initial heap limit, the VM will crash, so here we give it
-  // room to exit gracefully
   return current_heap_limit * 2;
 }
 
@@ -97,16 +87,11 @@ IsolatePtr NewIsolate(IsolateConstraintsPtr constraints) {
 
   iso->SetCaptureStackTraceForUncaughtExceptions(true);
 
-  // Try to catch the OOM condition and stop execution before killing the
-  // process
   iso->SetData(ISOLATE_STATE_SLOT, new IsolateState);
   iso->AddNearHeapLimitCallback(NearMemoryLimitCallback, iso);
-  // The callback raises the heap limit, so the isolate can be reused
-  // after the termination. Without this, the raised limit is kept, and
-  // raised again on every termination.
+
   iso->AutomaticallyRestoreInitialHeapLimit(0.5);
 
-  // Create a Context for internal use
   m_ctx* ctx = new m_ctx;
   ctx->ptr.Reset(iso, Context::New(iso));
   ctx->iso = iso;
@@ -164,17 +149,28 @@ void IsolateLowMemoryNotification(IsolatePtr iso) {
   iso->LowMemoryNotification();
 }
 
-void IsolateWriteHeapSnapshot(IsolatePtr iso, uintptr_t writerRef) {
+int IsolateWriteHeapSnapshotChecked(IsolatePtr iso, uintptr_t writerRef) {
+  if (iso == nullptr) {
+    return 0;
+  }
+
   ISOLATE_SCOPE(iso);
 
-  // This runs a full garbage collection first.
   const HeapSnapshot* snapshot = iso->GetHeapProfiler()->TakeHeapSnapshot();
+  if (snapshot == nullptr) {
+    return 0;
+  }
+
   GoOutputStream stream(writerRef);
   snapshot->Serialize(&stream, HeapSnapshot::kJSON);
   const_cast<HeapSnapshot*>(snapshot)->Delete();
+  return 1;
 }
 
-// The Go PromiseRejectEvent constants mirror v8::PromiseRejectEvent.
+void IsolateWriteHeapSnapshot(IsolatePtr iso, uintptr_t writerRef) {
+  IsolateWriteHeapSnapshotChecked(iso, writerRef);
+}
+
 static_assert(kPromiseRejectWithNoHandler == 0);
 static_assert(kPromiseHandlerAddedAfterReject == 1);
 
@@ -184,14 +180,9 @@ static void PromiseRejectedCallback(PromiseRejectMessage message) {
 
   Local<Context> local_ctx;
   if (!promise->GetCreationContext(iso).ToLocal(&local_ctx)) {
-    // Promises are always created in a context, but if there is none,
-    // there is no Go Context to report it in either.
     return;
   }
 
-  // The context is looked up through the Go registry, rather than
-  // through a pointer stored in the V8 context, since the V8 context
-  // can outlive a closed Context.
   int ctx_ref = local_ctx->GetEmbedderDataV2(ContextDataIndex::REF)
                     .As<Integer>()
                     ->Value();
@@ -200,7 +191,6 @@ static void PromiseRejectedCallback(PromiseRejectMessage message) {
     return;
   }
 
-  // The value is empty for kPromiseHandlerAddedAfterReject.
   Local<Value> value = message.GetValue();
   goPromiseRejectedCallback(
       ctx_ref, message.GetEvent(), track_value(ctx, promise),

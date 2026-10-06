@@ -938,8 +938,6 @@ func TestValueExternal(t *testing.T) {
 		}
 	}
 
-	// Types NewValue doesn't convert were probably meant to be converted, and
-	// a struct would be copied, so only pointers are wrapped.
 	type myString string
 	for _, v := range []any{42, float32(1), myString("a"), wrapped{42}, [1]int{1}, []int{1}, map[string]int{}, func() {}, make(chan int), nil, v8.Undefined(iso)} {
 		if _, err := v8.NewValue(iso, v); err == nil {
@@ -978,13 +976,8 @@ func TestValueExternalInternalField(t *testing.T) {
 	}
 }
 
-// finalizable is wrapped by tests that wait for its finalizer. The pointer
-// field keeps it out of the tiny allocator, which packs small pointer-free
-// objects into shared blocks. A finalizer only runs once the whole block is
-// unreachable, so it could depend on unrelated objects.
 type finalizable struct{ p *int }
 
-// waitFinalized runs the Go GC until done is closed, or fails the test.
 func waitFinalized(t *testing.T, done <-chan struct{}) {
 	t.Helper()
 	for i := 0; i < 100; i++ {
@@ -1012,8 +1005,6 @@ func TestValueExternalGC(t *testing.T) {
 	wrapped = nil
 	ext.Release()
 
-	// V8 deletes the handle when it collects the External, so the Go GC can
-	// collect the value.
 	iso.LowMemoryNotification()
 	waitFinalized(t, done)
 }
@@ -1030,7 +1021,6 @@ func TestValueExternalDispose(t *testing.T) {
 	fatalIf(t, err)
 	wrapped = nil
 
-	// The Value keeps the External alive, until the Isolate is disposed.
 	iso.LowMemoryNotification()
 	if got, ok := ext.External(); !ok || got == nil {
 		t.Fatalf("External before Dispose: got %v, %v, want a value", got, ok)

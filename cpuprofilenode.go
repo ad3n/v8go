@@ -5,25 +5,25 @@
 package v8go
 
 type CPUProfileNode struct {
-	nodeId int
-
-	scriptId int
+	parent *CPUProfileNode
 
 	scriptResourceName string
 
 	functionName string
+
+	bailoutReason string
+
+	children []*CPUProfileNode
+
+	nodeId int
+
+	scriptId int
 
 	lineNumber int
 
 	columnNumber int
 
 	hitCount int
-
-	bailoutReason string
-
-	children []*CPUProfileNode
-
-	parent *CPUProfileNode
 }
 
 func (c *CPUProfileNode) GetNodeId() int {

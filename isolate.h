@@ -23,7 +23,6 @@ typedef v8Isolate* IsolatePtr;
 typedef struct m_value m_value;
 typedef m_value* ValuePtr;
 
-// ScriptCompiler::CompileOptions values
 extern const int ScriptCompilerNoCompileOptions;
 extern const int ScriptCompilerConsumeCodeCache;
 extern const int ScriptCompilerEagerCompile;
@@ -62,14 +61,12 @@ extern int IsolateIsExecutionTerminating(IsolatePtr ptr);
 extern IsolateHStatistics IsolationGetHeapStatistics(IsolatePtr ptr);
 extern void IsolateLowMemoryNotification(IsolatePtr ptr);
 
-// Sets whether errors include a serialized exception message.
 extern void IsolateSetExceptionMessages(IsolatePtr ptr, int enabled);
 extern int IsolateExceptionMessages(IsolatePtr ptr);
 
-// Returns whether execution was terminated because the heap limit was
-// reached, since the last call.
 extern int IsolateTakeHeapLimitReached(IsolatePtr ptr);
 extern void IsolateWriteHeapSnapshot(IsolatePtr ptr, uintptr_t writerRef);
+extern int IsolateWriteHeapSnapshotChecked(IsolatePtr ptr, uintptr_t writerRef);
 
 extern ValuePtr IsolateThrowException(IsolatePtr iso, ValuePtr value);
 
@@ -79,6 +76,6 @@ extern RtnUnboundScript IsolateCompileUnboundScript(IsolatePtr iso_ptr,
                                                     CompileOptions options);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 #endif

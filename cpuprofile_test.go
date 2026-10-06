@@ -50,9 +50,6 @@ func TestCPUProfile(t *testing.T) {
 		t.Errorf("expected (root), but got %v", root.GetFunctionName())
 	}
 
-	// V8 and Go use different clocks, e.g. on Windows, Go's has the
-	// granularity of the timer interrupt, so V8's duration can exceed the
-	// elapsed time measured around it. A unit error would be far larger.
 	if d := cpuProfile.GetDuration(); d <= 0 || d > 2*elapsed {
 		t.Fatalf("expected profile duration (%s) to be positive, and at most twice the elapsed time (%s)", d, elapsed)
 	}

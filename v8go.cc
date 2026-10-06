@@ -33,8 +33,6 @@ m_unboundScript* tracked_unbound_script(m_ctx* ctx, m_unboundScript* us) {
 
 extern "C" {
 
-/********** Isolate **********/
-
 #define ISOLATE_SCOPE_INTERNAL_CONTEXT(iso) \
   ISOLATE_SCOPE(iso);                       \
   m_ctx* ctx = isolateInternalContext(iso);
@@ -86,8 +84,6 @@ RtnUnboundScript IsolateCompileUnboundScript(IsolatePtr iso,
   return rtn;
 }
 
-/********** Exceptions & Errors **********/
-
 ValuePtr IsolateThrowException(IsolatePtr iso, ValuePtr value) {
   ISOLATE_SCOPE(iso);
   m_ctx* ctx = value->ctx;
@@ -102,8 +98,6 @@ ValuePtr IsolateThrowException(IsolatePtr iso, ValuePtr value) {
 
   return tracked_value(ctx, new_val);
 }
-
-/********** CpuProfiler **********/
 
 CPUProfiler* NewCPUProfiler(IsolatePtr iso_ptr) {
   Isolate* iso = static_cast<Isolate*>(iso_ptr);
@@ -214,10 +208,8 @@ void CPUProfileDelete(CPUProfile* profile) {
   delete profile;
 }
 
-/********** Template **********/
-
 void TemplateFreeWrapper(TemplatePtr tmpl) {
-  tmpl->ptr.Clear();  // Just does `val_ = 0;` without calling V8::DisposeGlobal
+  tmpl->ptr.Clear();
   delete tmpl;
 }
 
@@ -272,8 +264,6 @@ int TemplateSetAnyTemplate(TemplatePtr ptr,
             (PropertyAttribute)attributes);
   return true;
 }
-
-/********** Context **********/
 
 RtnValue JSONParse(ContextPtr ctx, const char* str) {
   return JSONParseWithLength(ctx, str, strlen(str));
@@ -341,8 +331,6 @@ const char* JSONStringify(ContextPtr ctx, ValuePtr val) {
   return CopyString(json);
 }
 
-/********** Exception **********/
-
 const char* ExceptionGetMessageString(ValuePtr ptr) {
   LOCAL_VALUE(ptr);
 
@@ -351,8 +339,6 @@ const char* ExceptionGetMessageString(ValuePtr ptr) {
   String::Utf8Value utf8(iso, local_str);
   return CopyString(utf8);
 }
-
-/********** Promise **********/
 
 RtnValue NewPromiseResolver(ContextPtr ctx) {
   LOCAL_CONTEXT(ctx);
@@ -496,11 +482,6 @@ ValuePtr PromiseResult(ValuePtr ptr) {
   return tracked_value(ctx, result_val);
 }
 
-/********** Function **********/
-
-// Each invocation owns its storage, including reentrant calls from callbacks.
-// V8 consumes these local handles synchronously; neither storage nor Go's
-// borrowed argument array is retained after the call.
 class FunctionArguments {
  public:
   FunctionArguments(Isolate* iso, int argc, ValuePtr* args)
@@ -585,8 +566,6 @@ ValuePtr FunctionSourceMapUrl(ValuePtr ptr) {
   return tracked_value(ctx, rtnval);
 }
 
-/********** v8::V8 **********/
-
 const char* Version() {
   return V8::GetVersion();
 }
@@ -594,8 +573,6 @@ const char* Version() {
 void SetFlags(const char* flags) {
   V8::SetFlagsFromString(flags);
 }
-
-/********** SharedArrayBuffer & BackingStore ***********/
 
 struct v8BackingStore {
   v8BackingStore(std::shared_ptr<v8::BackingStore>&& ptr)

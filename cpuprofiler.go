@@ -37,15 +37,6 @@ func (c *CPUProfiler) Dispose() {
 	c.p = nil
 }
 
-// Do collects a CPU profile of fn, and returns it.
-//
-// The profile only contains samples from JavaScript executing on the
-// calling goroutine, so fn must not execute JavaScript on other goroutines.
-// To ensure this, Do locks the goroutine to its OS thread while running fn.
-// If fn panics, or calls runtime.Goexit, the profile is discarded.
-//
-// Do is the preferred way of profiling, since it guarantees the thread
-// requirements of StartProfiling.
 func (c *CPUProfiler) Do(title string, fn func()) *CPUProfile {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -65,16 +56,6 @@ func (c *CPUProfiler) Do(title string, fn func()) *CPUProfile {
 	return c.StopProfiling(title)
 }
 
-// StartProfiling starts collecting a CPU profile. Title may be an empty string. Several
-// profiles may be collected at once. Attempts to start collecting several
-// profiles with the same title are silently ignored.
-//
-// V8 only samples the OS thread that called StartProfiling. Until
-// StopProfiling, JavaScript executing on any other thread is silently missing
-// from the profile. Since the Go scheduler may move goroutines between OS
-// threads, the caller must call runtime.LockOSThread before StartProfiling,
-// and execute JavaScript on the same goroutine. Use Do to have this done
-// automatically.
 func (c *CPUProfiler) StartProfiling(title string) {
 	if c.p == nil || c.iso.ptr == nil {
 		panic("profiler or isolate are nil")
@@ -106,7 +87,26 @@ func (c *CPUProfiler) StopProfiling(title string) *CPUProfile {
 }
 
 func newCPUProfileNode(node *C.CPUProfileNode, parent *CPUProfileNode) *CPUProfileNode {
-	n := &CPUProfileNode{
+	count := countCPUProfileNodes(node)
+	nodes := make([]CPUProfileNode, count)
+	children := make([]*CPUProfileNode, count-1)
+	nextNode, nextChild := 0, 0
+	return copyCPUProfileNode(node, parent, nodes, children, &nextNode, &nextChild)
+}
+
+func countCPUProfileNodes(node *C.CPUProfileNode) int {
+	count := 1
+	for _, child := range unsafe.Slice(node.children, int(node.childrenCount)) {
+		count += countCPUProfileNodes(child)
+	}
+
+	return count
+}
+
+func copyCPUProfileNode(node *C.CPUProfileNode, parent *CPUProfileNode, nodes []CPUProfileNode, children []*CPUProfileNode, nextNode, nextChild *int) *CPUProfileNode {
+	n := &nodes[*nextNode]
+	*nextNode += 1
+	*n = CPUProfileNode{
 		nodeId:             int(node.nodeId),
 		scriptId:           int(node.scriptId),
 		scriptResourceName: C.GoString(node.scriptResourceName),
@@ -118,11 +118,15 @@ func newCPUProfileNode(node *C.CPUProfileNode, parent *CPUProfileNode) *CPUProfi
 		parent:             parent,
 	}
 
-	if node.childrenCount > 0 {
-		n.children = make([]*CPUProfileNode, node.childrenCount)
-		for i, child := range (*[1 << 28]*C.CPUProfileNode)(unsafe.Pointer(node.children))[:node.childrenCount:node.childrenCount] {
-			n.children[i] = newCPUProfileNode(child, n)
-		}
+	if node.childrenCount == 0 {
+		return n
+	}
+
+	end := *nextChild + int(node.childrenCount)
+	n.children = children[*nextChild:end:end]
+	*nextChild = end
+	for i, child := range unsafe.Slice(node.children, int(node.childrenCount)) {
+		n.children[i] = copyCPUProfileNode(child, n, nodes, children, nextNode, nextChild)
 	}
 
 	return n

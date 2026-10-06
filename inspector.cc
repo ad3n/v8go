@@ -7,13 +7,6 @@
 using namespace v8;
 using namespace v8_inspector;
 
-/**
- * InspectorClient is an implementation of v8_inspector::V8InspectorClient that
- * is designed to be able to call back to Go code to a specific instance
- * identified by a cgo handle.
- *
- * See also: https://pkg.go.dev/runtime/cgo#Handle
- */
 class InspectorClient : public V8InspectorClient {
   uintptr_t _cgoHandle;
 
@@ -31,8 +24,7 @@ class InspectorClient : public V8InspectorClient {
 StringViewData ConvertStringView(const StringView& view) {
   StringViewData msg;
   msg.is8bit = view.is8Bit();
-  // The ? isn't necessary, the two functions return the sama pointer. But that
-  // has been considered an implementation detail that may change.
+
   msg.data =
       view.is8Bit() ? (void*)view.characters8() : (void*)view.characters16();
   msg.length = view.length();
@@ -61,8 +53,6 @@ v8Inspector* CreateInspector(v8Isolate* iso, v8InspectorClient* client) {
 void DeleteInspector(v8Inspector* inspector) {
   delete inspector;
 }
-
-/********** InspectorClient **********/
 
 v8InspectorClient* NewInspectorClient(uintptr_t cgoHandle) {
   return new InspectorClient(cgoHandle);

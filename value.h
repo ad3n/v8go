@@ -13,7 +13,7 @@
 namespace v8 {
 class Isolate;
 class Value;
-}  // namespace v8
+}
 
 typedef struct m_ctx m_ctx;
 
@@ -22,9 +22,7 @@ struct m_value {
   v8::Isolate* iso;
   m_ctx* ctx;
   v8::Global<v8::Value> ptr;
-  // Non-zero if ptr is a weak handle to an External holding a Go value, as
-  // created by NewValueGo. It is the cgo.Handle in the External, deleted
-  // when V8 collects it, or the Isolate is disposed.
+
   uintptr_t go_handle = 0;
 };
 

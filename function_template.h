@@ -9,7 +9,7 @@ namespace v8 {
 class Isolate;
 template <class F>
 class FunctionCallbackInfo;
-}  // namespace v8
+}
 
 void FunctionTemplateCallback(const v8::FunctionCallbackInfo<v8::Value>& info);
 
@@ -32,6 +32,6 @@ extern m_template* FunctionTemplatePrototypeTemplate(m_template* ptr);
 extern void FunctionTemplateInherit(m_template* ptr, m_template* base);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 #endif

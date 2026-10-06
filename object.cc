@@ -7,8 +7,6 @@
 
 using namespace v8;
 
-/********** Object **********/
-
 #define LOCAL_OBJECT(ptr) \
   LOCAL_VALUE(ptr)        \
   Local<Object> obj = value.As<Object>()

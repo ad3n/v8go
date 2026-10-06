@@ -210,6 +210,11 @@ V8 only samples the OS thread that started profiling.
 When using `StartProfiling` and `StopProfiling` directly, call `runtime.LockOSThread` first, and execute JavaScript on the same goroutine.
 Otherwise, samples are silently missing from the profile.
 
+The returned node tree owns its Go data and remains readable after
+`CPUProfile.Delete`. Native profile storage is released by `Delete`; call it
+before disposing the isolate. Nodes use contiguous Go storage and keep their
+parent/child relationships without retaining pointers into native storage.
+
 ```go
 func createProfile() {
 	iso := v8.NewIsolate()
@@ -262,6 +267,20 @@ Go Reference & more examples: https://pkg.go.dev/github.com/ad3n/v8go
 
 If you would like to ask questions about this library or want to keep up-to-date with the latest changes and releases,
 please join the [**#v8go**](https://gophers.slack.com/channels/v8go) channel on Gophers Slack. [Click here to join the Gophers Slack community!](https://invite.slack.golangbridge.org/)
+
+### Heap snapshots
+
+`Isolate.WriteHeapSnapshot` streams Chrome-compatible heap snapshot JSON to an
+`io.Writer`. Taking a snapshot performs a full V8 garbage collection. Use a
+live isolate, serialize access to it, and do not reenter or dispose it from the
+writer callback. The callback receives borrowed native bytes for that call
+only; the `io.Writer` contract requires it to copy bytes it needs to retain.
+
+Nil writers and nil/disposed isolates return errors. A write count that does
+not match the supplied chunk returns `io.ErrShortWrite`. Writer errors stop
+serialization. If a writer panics, the native snapshot is deleted before the
+same panic is propagated to the caller. Successful snapshots are also deleted
+after serialization, and the callback handle is released on every return path.
 
 ## V8 Dependency
 

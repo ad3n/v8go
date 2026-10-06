@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NewValue` wraps Go pointers in V8 Externals, read back with `Value.External`, e.g. to wrap Go objects in JavaScript objects. The Go value is released when V8 garbage collects the External, or the Isolate is disposed. In [#107](https://github.com/tommie/v8go/pull/107).
 
 ### Changed
+- Store CPU profile nodes and child links in contiguous Go slices to reduce allocations during profile conversion.
 - Keep native V8 archives outside the repository and supply their directory through `CGO_LDFLAGS`; retain bundled headers and remove platform module dependencies.
 - Remove Windows and Android native build targets and platform modules; supported native builds are Linux and macOS on amd64 and arm64.
 - Document that `CPUProfiler.StartProfiling` requires JavaScript to execute on the calling OS thread. V8 only samples that thread, so the profile silently missed samples when Go moved the goroutine to another thread.
 
 ### Fixed
+- Validate heap snapshot targets and writer counts, handle failed native snapshots, and complete native cleanup before propagating writer panics.
 - Package native archives as platform modules under `github.com/ad3n/v8go/deps/` so Go downloads stay below the 500 MiB module limit and vendored builds include the archives.
 - `CPUProfile.GetDuration` was 1000 times too long, since V8's microseconds were read as milliseconds.
 - `go mod vendor` copies the V8 and libc++ header files, so vendored builds work again. In [#116](https://github.com/tommie/v8go/issues/116).

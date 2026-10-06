@@ -438,8 +438,6 @@ func TestIsolateSetPromiseRejectedCallback_ClosedContext(t *testing.T) {
 		events = append(events, msg.Event)
 	})
 
-	// The reject function keeps the promise, and its creation context,
-	// alive after closedCtx is closed.
 	reject, err := closedCtx.RunScript("let r; new Promise((_, rej) => { r = rej }); r", "")
 	fatalIf(t, err)
 	fatalIf(t, ctx.Global().Set("reject", reject))
@@ -451,7 +449,6 @@ func TestIsolateSetPromiseRejectedCallback_ClosedContext(t *testing.T) {
 		t.Errorf("Got events %v, want none", events)
 	}
 
-	// Promises in open contexts are still reported.
 	_, err = ctx.RunScript("Promise.reject('value')", "")
 	fatalIf(t, err)
 	if want := []v8.PromiseRejectEvent{v8.PromiseRejectWithNoHandler}; !reflect.DeepEqual(events, want) {

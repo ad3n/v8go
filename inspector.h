@@ -10,7 +10,7 @@ class Isolate;
 namespace v8_inspector {
 class V8Inspector;
 class V8InspectorClient;
-};  // namespace v8_inspector
+};
 
 typedef v8::Isolate v8Isolate;
 typedef v8_inspector::V8Inspector v8Inspector;
@@ -46,7 +46,7 @@ typedef struct StringViewData {
 } StringViewData;
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 
 #endif

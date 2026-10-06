@@ -13,12 +13,7 @@
 
 using namespace v8;
 
-// The serialization format is parsed by parseMessage in errors.go.
-// Integers are 32 bits, little-endian. Strings are a length, followed by
-// UTF-8 bytes.
 static void AppendInt(std::string& buf, int32_t v) {
-  // A single append, which a byte-by-byte push_back loop isn't optimized
-  // into. The swap is a no-op on all our targets.
   uint32_t le = static_cast<uint32_t>(v);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
   le = __builtin_bswap32(le);
@@ -40,9 +35,7 @@ static std::string SerializeMessage(Isolate* iso,
                                     Local<Context> ctx,
                                     Local<Message> msg) {
   std::string buf;
-  // Avoids growing the buffer repeatedly. The header is 36 bytes of
-  // lengths and integers, plus the text, script name and source line,
-  // e.g. 60, 40 and 150 bytes. A larger message only costs reallocations.
+
   buf.reserve(256);
   AppendString(buf, iso, msg->Get());
   AppendString(buf, iso, msg->GetScriptResourceName());
@@ -58,11 +51,9 @@ static std::string SerializeMessage(Isolate* iso,
   AppendInt(buf, msg->GetEndColumn());
   AppendInt(buf, msg->GetWasmFunctionIndex());
 
-  // Captured because of SetCaptureStackTraceForUncaughtExceptions.
   Local<StackTrace> trace = msg->GetStackTrace();
   int num_frames = trace.IsEmpty() ? 0 : trace->GetFrameCount();
-  // The count, and per frame 20 bytes of lengths and integers, plus the
-  // script and function names, e.g. 30 and 14 bytes.
+
   buf.reserve(buf.size() + 4 + num_frames * 64);
   AppendInt(buf, num_frames);
   for (int i = 0; i < num_frames; i++) {
@@ -86,10 +77,6 @@ RtnError ExceptionError(TryCatch& try_catch, Isolate* iso, Local<Context> ctx) {
 
   if (try_catch.HasTerminated()) {
     if (IsolateTakeHeapLimitReached(iso)) {
-      // The script has unwound, so its garbage can be collected. This
-      // makes AutomaticallyRestoreInitialHeapLimit restore the limit,
-      // which it only does when the heap is small enough. Otherwise, the
-      // next script reaching the limit would raise it further.
       iso->LowMemoryNotification();
       rtn.msg = CopyString("ExecutionTerminated: heap limit reached");
       rtn.heap_limit_reached = 1;
@@ -114,8 +101,7 @@ RtnError ExceptionError(TryCatch& try_catch, Isolate* iso, Local<Context> ctx) {
     }
     Maybe<int> start = try_catch.Message()->GetStartColumn(ctx);
     if (start.IsJust()) {
-      sb << ":"
-         << start.ToChecked() + 1;  // + 1 to match output from stack trace
+      sb << ":" << start.ToChecked() + 1;
     }
     rtn.location = CopyString(sb.str());
 

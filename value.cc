@@ -216,9 +216,6 @@ ValuePtr NewValueError(IsolatePtr iso,
   return tracked_value(ctx, val);
 }
 
-// Runs when V8 has collected the External. This is a first-pass callback,
-// which must not call into V8, except to reset the handle. Deleting the handle
-// in Go doesn't touch V8.
 static void GoValueWeakCallback(const WeakCallbackInfo<m_value>& info) {
   m_value* val = info.GetParameter();
   val->ctx->vals.erase(val->id);
@@ -232,14 +229,6 @@ ValuePtr NewValueGo(IsolatePtr iso, uintptr_t handle) {
   Local<External> ext =
       External::New(iso, (void*)handle, kExternalPointerTypeTagDefault);
 
-  // All Externals in v8go are created here, since ValueToGo reads any
-  // External as a handle, with the default tag. With the sandbox enabled,
-  // V8 aborts if the tag doesn't match.
-  //
-  // The External holds the handle itself, so reading it needs no lookup.
-  // Handles are small integers, which fit in the 48 bits an External holds
-  // with the sandbox enabled. A weak tracked value owns the handle, and
-  // deletes it when V8 collects the External, or the Isolate is disposed.
   m_value* owner = new m_value;
   owner->id = 0;
   owner->iso = iso;
@@ -257,8 +246,6 @@ ValuePtr NewValueGo(IsolatePtr iso, uintptr_t handle) {
   return tracked_value(ctx, val);
 }
 
-// Returns the cgo.Handle in an External created by NewValueGo, or zero if
-// the value is not an External.
 uintptr_t ValueToGo(ValuePtr ptr) {
   LOCAL_VALUE(ptr);
   if (!value->IsExternal()) {
@@ -311,10 +298,7 @@ RtnString ValueToDetailString(ValuePtr ptr) {
 RtnString ValueToString(ValuePtr ptr) {
   LOCAL_VALUE(ptr);
   RtnString rtn = {0};
-  // String::Utf8Value will result in an empty string if conversion to a string
-  // fails
-  // TODO: Consider propagating the JS error. A fallback value could be returned
-  // in Value.String()
+
   String::Utf8Value src(iso, value);
   char* data = static_cast<char*>(malloc(src.length()));
   memcpy(data, *src, src.length());

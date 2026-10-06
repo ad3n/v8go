@@ -23,8 +23,6 @@ typedef const v8::CpuProfileNode* CpuProfileNodePtr;
 extern "C" {
 #else
 
-// Opaque to cgo, but useful to treat it as a pointer to a distinct type
-
 typedef struct v8CpuProfiler v8CpuProfiler;
 typedef v8CpuProfiler* CpuProfilerPtr;
 
@@ -39,7 +37,6 @@ typedef const v8CpuProfileNode* CpuProfileNodePtr;
 #include "unbound_script.h"
 #include "value.h"
 
-// Opaque to both C and C++
 typedef struct v8BackingStore v8BackingStore;
 typedef v8BackingStore* BackingStorePtr;
 
@@ -127,6 +124,6 @@ const char* Version();
 extern void SetFlags(const char* flags);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
-#endif  // V8GO_H
+#endif

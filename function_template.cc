@@ -12,9 +12,6 @@ void FunctionTemplateCallback(const FunctionCallbackInfo<Value>& info) {
   Isolate* iso = info.GetIsolate();
   ISOLATE_SCOPE(iso);
 
-  // This callback function can be called from any Context, which we only know
-  // at runtime. We extract the Context reference from the embedder data so that
-  // we can use the context registry to match the Context on the Go side
   Local<Context> local_ctx = iso->GetCurrentContext();
   int ctx_ref = local_ctx->GetEmbedderDataV2(ContextDataIndex::REF)
                     .As<Integer>()
@@ -56,10 +53,6 @@ TemplatePtr NewFunctionTemplate(IsolatePtr iso, int callback_ref) {
   Isolate::Scope isolate_scope(iso);
   HandleScope handle_scope(iso);
 
-  // (rogchap) We only need to store one value, callback_ref, into the
-  // C++ callback function data, but if we needed to store more items we could
-  // use an V8::Array; this would require the internal context from
-  // iso->GetData(0)
   Local<Integer> cbData = Integer::New(iso, callback_ref);
 
   m_template* ot = new m_template;

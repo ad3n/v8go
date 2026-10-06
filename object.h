@@ -28,6 +28,6 @@ int ObjectDeleteAnyKey(ValuePtr ptr, ValuePtr key);
 int ObjectDeleteIdx(ValuePtr ptr, uint32_t idx);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 #endif

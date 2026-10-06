@@ -26,11 +26,6 @@ ContextPtr NewContext(IsolatePtr iso,
     global_template = ObjectTemplate::New(iso);
   }
 
-  // For function callbacks we need a reference to the context, but because of
-  // the complexities of C -> Go function pointers, we store a reference to the
-  // context as a simple integer identifier; this can then be used on the Go
-  // side to lookup the context in the context registry. We use slot 1 as slot 0
-  // has special meaning for the Chrome debugger.
   Local<Context> local_ctx = Context::New(iso, nullptr, global_template);
   local_ctx->SetEmbedderDataV2(ContextDataIndex::REF, Integer::New(iso, ref));
 
@@ -74,9 +69,6 @@ m_value* track_value(m_ctx* ctx, Local<Value> value) {
 }
 
 m_value* tracked_value(m_ctx* ctx, m_value* val) {
-  // (rogchap) we track values against a context so that when the context is
-  // closed (either manually or GC'd by Go) we can also release all the
-  // values associated with the context;
   if (val->id == 0) {
     val->id = ++ctx->nextValId;
     ctx->vals[val->id] = val;

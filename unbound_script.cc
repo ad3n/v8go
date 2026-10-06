@@ -1,4 +1,4 @@
-/********** UnboundScript & ScriptCompilerCachedData **********/
+
 
 #include "unbound_script.h"
 #include "context-macros.h"
@@ -32,8 +32,6 @@ void ScriptCompilerCachedDataDelete(ScriptCompilerCachedData* cached_data) {
   delete cached_data;
 }
 
-// This can only run in contexts that belong to the same isolate
-// the script was compiled in
 RtnValue UnboundScriptRun(ContextPtr ctx, UnboundScriptPtr us_ptr) {
   LOCAL_CONTEXT(ctx)
 
