@@ -12,7 +12,6 @@ This is a fork of https://github.com/rogchap/v8go at v0.9.0.
 
 Major differences include
 
-* Android amd64/arm64 support.
 * Works with the new Chromium release dashboard (used to find what the stable version of V8 is).
 * Actually upgrades V8.
   See https://github.com/rogchap/v8go/issues/399.
@@ -42,23 +41,26 @@ CC=clang-21 CXX=clang++-21 CGO_CXXFLAGS=-nostdinc++ go build
 Note that these environment variables apply to all cgo packages in the
 build.
 
-### Windows
-
-Windows amd64 is supported with Go 1.27 or newer. V8 is built with the
-MSVC ABI, so v8go must also be compiled with an MSVC-target clang,
-which is what [LLVM's Windows release](https://releases.llvm.org/) is,
-not MinGW. It must link with LLD, and the Microsoft C runtime and
-Windows SDK libraries must be installed, e.g. with the Visual Studio
-Build Tools:
+Native archives are supplied by the build environment and are not part of the
+Go module. Keep the matching V8, libc++, libc++abi and compiler-rt archives in
+an external directory and set its linker search path:
 
 ```sh
-CC="clang -fuse-ld=lld" CXX="clang++ -fuse-ld=lld" CGO_CXXFLAGS=-nostdinc++ go build
+export CC=clang-21 CXX=clang++-21 CGO_CXXFLAGS=-nostdinc++
+export CGO_LDFLAGS="-L/absolute/path/to/native/linux_amd64"
+go build ./...
 ```
 
-`-fuse-ld=lld` must be in `CC`, or in `-ldflags=-extldflags=-fuse-ld=lld`,
-for Go to detect LLD. Otherwise, it passes flags only GNU ld accepts.
-Since Go splits `CC` on spaces, clang must be in `PATH`, rather than
-given as a full path.
+The directory must contain the archive names listed in the applicable
+`cgo_<os>_<arch>.go`. Headers remain bundled under `deps/include*` and must
+match the V8 commit recorded in `deps/v8_hash`, as well as its build settings.
+A Docker build can use `CGO_LDFLAGS="-L${V8GO_HOME} ..."` to supply these libraries.
+
+To build native libraries locally, initialize the pinned V8 and depot_tools
+submodules, bootstrap depot_tools, then run `python3 deps/build.py` from the
+repository root. Output is stored under the ignored `.build/native/<os>_<arch>`.
+Set `CGO_LDFLAGS` to that directory. To regenerate linker flags from a different
+archive split, run `python3 deps/update_cgo.py` after building.
 
 ## Usage
 
@@ -261,20 +263,10 @@ Go Reference & more examples: https://pkg.go.dev/github.com/ad3n/v8go
 If you would like to ask questions about this library or want to keep up-to-date with the latest changes and releases,
 please join the [**#v8go**](https://gophers.slack.com/channels/v8go) channel on Gophers Slack. [Click here to join the Gophers Slack community!](https://invite.slack.golangbridge.org/)
 
-### Windows
-
-There used to be Windows binary support. For further information see, [rogchap PR #234](https://github.com/rogchap/v8go/pull/234).
-
-The v8go library would welcome contributions from anyone able to get an external windows
-build of the V8 library linking with v8go, using the version of V8 checked out in the
-`deps/v8` git submodule, and documentation of the process involved. This process will likely
-involve passing a linker flag when building v8go (e.g. using the `CGO_LDFLAGS` environment
-variable.
-
 ## V8 Dependency
 
 See `deps/v8/` for the version of V8 we're currently on.
-In order to make `v8go` usable as a standard Go package, prebuilt static libraries of V8 are included for Linux and macOS. you *should not* require to build V8 yourself.
+The Go module includes V8 and libc++ headers. Native libraries for Linux and macOS must be provided by the build environment.
 
 ## Project Goals
 
@@ -297,7 +289,7 @@ This project also aims to keep up-to-date with the latest (stable) release of V8
 [Aside from data races, Go should be memory-safe](https://research.swtch.com/gorace) and v8go should preserve this property by adding the necessary checks to return an error or panic on these unsupported code paths. Release builds of v8go don't include debugging information for the V8 library since it significantly adds to the binary size, slows down compilation and shouldn't be needed by users of v8go. However, if a v8go bug causes a crash (e.g. during new feature development) then it can be helpful to build V8 with debugging information to get a C++ backtrace with line numbers. The following steps will not only do that, but also enable V8 debug checking, which can help with catching misuse of the V8 API.
 
 1) Make sure to clone the projects submodules (ie. the V8's `depot_tools` project): `git submodule update --init --recursive`
-1) Build the V8 binary for your OS: `deps/build.py --debug`. V8 is a large project, and building the binary can take up to 30 minutes.
+1) Build the V8 binary for your OS: `python3 deps/build.py --debug`, then set `CGO_LDFLAGS` to the resulting `.build/native/<os>_<arch>` directory. V8 is a large project, and building the binary can take up to 30 minutes.
 1) Build the executable to debug, using `go build` for commands or `go test -c` for tests. You may need to add the `-ldflags=-compressdwarf=false` option to disable debug information compression so this information can be read by the debugger (e.g. lldb that comes with Xcode v12.5.1, the latest Xcode released at the time of writing)
 1) Run the executable with a debugger (e.g. `lldb -- ./v8go.test -test.run TestThatIsCrashing`, `run` to start execution then use `bt` to print a bracktrace after it breaks on a crash), since backtraces printed by Go or V8 don't currently include line number information.
 
@@ -312,28 +304,15 @@ The [v8build](https://github.com/ad3n/v8go/.github/workflow/v8build.yml) workflo
 It is triggered by the `v8upgrade` workflow, or being run manually.
 Each architecture is a separate job, storing build artifacts that are picked up by the Commit job.
 This job updates the master branch.
-Then it runs `syncsubdeps`.
+The native archives are uploaded as workflow artifacts rather than committed.
+Only headers, generated linker flags and pinned source revisions are committed.
+Tests restore a matching native build from the CI cache or build it from the
+pinned V8 revision, then supply its path through `CGO_LDFLAGS`.
 
-The native archives are separate Go modules under `github.com/ad3n/v8go/deps/`,
-one per platform. This keeps each module below Go's 500 MiB download limit.
-The root package imports the matching platform module, which supplies its
-linker flags. The `syncsubdeps` job pins these modules to the native build commit.
-For local development, use a workspace with the checked-out archives:
-
-```sh
-go work init .
-for module in deps/*_*/go.mod; do
-  go work use "${module%/go.mod}"
-done
-```
-
-Vendoring includes the native archives through these imports;
-no manual copying is required.
-
-The Vendor Check workflow runs `python3 tools/check_modules.py` to check the
-module size limits and build a consumer through an offline file proxy, both
-before and after `go mod vendor`, without local replacements. The Release
-workflow tags the platform modules before publishing the root module.
+The Vendor Check workflow checks module size limits and builds a consumer
+through an offline file proxy, before and after `go mod vendor`. Headers are
+vendored automatically; native libraries remain external. There are no
+platform Go module dependencies or platform release tags.
 
 Releasing the library is a matter of running the [release](https://github.com/ad3n/v8go/.github/workflow/release.yml) workflow.
 It reads `CHANGELOG.md`, creates a Git tag and a GitHub release.

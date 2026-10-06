@@ -122,26 +122,6 @@ jobs:
 
         echo "commit=$commit_sha" >>"$GITHUB_OUTPUT"
 
-    - name: Tag Platform Modules
-      run: |
-        set -euo pipefail
-        version='${{ steps.changelog.outputs.version }}'
-        commit='${{ steps.find_commit.outputs.commit }}'
-        tags=()
-        for module in deps/*_*/go.mod; do
-          tag="${module%/go.mod}/$version"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-            git fetch origin "refs/tags/$tag:refs/tags/$tag"
-            test "$(git rev-parse "$tag^{commit}")" = "$(git rev-parse "$commit^{commit}")"
-          else
-            git tag "$tag" "$commit"
-            tags+=("refs/tags/$tag")
-          fi
-        done
-        if [ "${#tags[@]}" -gt 0 ]; then
-          git push --atomic origin "${tags[@]}"
-        fi
-
     - id: create_release
       name: Create Release
       uses: ncipollo/release-action@v1

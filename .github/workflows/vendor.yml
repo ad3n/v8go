@@ -33,6 +33,8 @@ jobs:
       with:
         go-version: stable
 
+    - uses: ./.github/actions/setup-v8
+
     - name: Check Downloaded Modules and Size Limits
       env:
         CGO_CXXFLAGS: "-nostdinc++ -Werror"
@@ -40,8 +42,7 @@ jobs:
         python3 -m unittest discover -s tools -p 'test_check_modules.py'
         python3 tools/check_modules.py
 
-    # No workspace is needed, since the script replaces all v8go
-    # modules with the work tree.
+    # Use the work tree as the source and external native libraries.
     - name: Build and Run Vendored Module
       env:
         CGO_CXXFLAGS: "-nostdinc++ -Werror"

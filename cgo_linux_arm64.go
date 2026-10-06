@@ -3,4 +3,8 @@
 
 package v8go
 
-import _ "github.com/ad3n/v8go/deps/linux_arm64"
+// #cgo LDFLAGS: -pthread
+// #cgo LDFLAGS: -Wl,--start-group -lv8-0 -lv8-1 -lv8-2 -lv8-3 -lc++-cr -lc++abi-cr -lclang_rt.builtins-cr -Wl,--end-group
+// #cgo libgcompat LDFLAGS: -lgcompat
+// #cgo linux LDFLAGS: -ldl
+import "C"

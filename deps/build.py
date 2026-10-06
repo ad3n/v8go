@@ -14,6 +14,7 @@ default_arch = current_arch if current_arch in valid_archs else None
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--verbose', '-v', default=False, action='store_true')
+parser.add_argument('--output-dir', default=os.path.join('.build', 'native'), help='Directory for external native archives, relative to the working directory')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--ccache', default=False, action='store_true')
 parser.add_argument('--clang', action='store_true')
@@ -31,9 +32,11 @@ parser.add_argument('--arch',
 parser.add_argument(
     '--os',
     dest='os',
-    choices=['android', 'ios', 'linux', 'darwin', 'windows'],
+    choices=['ios', 'linux', 'darwin'],
     default=platform.system().lower())
 args = parser.parse_args()
+if args.os not in ("ios", "linux", "darwin"):
+    parser.error("Windows and Android native builds are no longer supported")
 
 deps_path = os.path.dirname(os.path.realpath(__file__))
 v8_path = os.path.join(deps_path, "v8")
@@ -514,7 +517,7 @@ def main():
         ninja_targets.append("libc++abi")
     subprocess_check_call([ninja_path, "-v", "-C", build_path] + ninja_targets, cwd=v8_path)
 
-    dest_path = os.path.join(deps_path, os_arch())
+    dest_path = os.path.join(os.path.abspath(args.output_dir), os_arch())
     if args.os == "windows":
         os.makedirs(dest_path, exist_ok=True)
         split_windows_lib(build_path, dest_path)

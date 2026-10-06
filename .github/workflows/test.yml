@@ -18,7 +18,7 @@ jobs:
     name: Tests on ${{ matrix.os }} ${{ matrix.arch }} with Go ${{ matrix.go-version }}
     strategy:
       matrix:
-        os: [darwin, linux, windows]
+        os: [darwin, linux]
         arch: [amd64, arm64]
         go-version:
         # Check the earliest and two trailing versions, to keep
@@ -26,26 +26,14 @@ jobs:
         - 1.26
         - oldstable
         - stable
-        exclude:
-        # Go supports MSVC-target clang with LLD since 1.27.
-        - os: windows
-          go-version: 1.26
-        - os: windows
-          go-version: oldstable
-        # TODO: test windows/arm64 on windows-11-arm.
-        - os: windows
-          arch: arm64
         include:
         - os: linux
           platform: ubuntu-latest
         - os: darwin
           platform: macos-latest
-        - os: windows
-          platform: windows-latest
     runs-on: ${{ matrix.platform }}
     defaults:
       run:
-        # Also on Windows, which defaults to PowerShell.
         shell: bash
     steps:
     - name: Checkout
@@ -64,14 +52,7 @@ jobs:
     - name: Add GOPATH to GITHUB_ENV
       run: echo "GOPATH=$(go env GOPATH)" >>"$GITHUB_ENV"
 
-    - name: Set Up Workspace
-      # Submodules shouldn't cause a download.
-      run: |
-        set -o pipefail
-        go work init .
-        for module in deps/*_*/go.mod; do
-          go work use "${module%/go.mod}"
-        done
+    - uses: ./.github/actions/setup-v8
 
     - name: Run Tests With Coverage
       run: go test -v -coverprofile coverage.out ./...

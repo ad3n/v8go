@@ -34,14 +34,7 @@ jobs:
       with:
         go-version: stable
 
-    - name: Set Up Workspace
-      # Submodules shouldn't cause a download.
-      run: |
-        set -o pipefail
-        go work init .
-        for module in deps/*_*/go.mod; do
-          go work use "${module%/go.mod}"
-        done
+    - uses: ./.github/actions/setup-v8
 
     - name: Build Test
       env:

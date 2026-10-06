@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def module_files(directory):
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
-        if any(part in (".git", "vendor", "__pycache__") for part in relative.parts):
+        if any(part in (".git", "vendor", "__pycache__", ".build", ".cipd") for part in relative.parts):
             continue
         if path.is_symlink() or not path.is_file():
             continue
@@ -58,18 +58,11 @@ def write_module(proxy, module, version, directory):
 
 
 def create_proxy(proxy, root_version):
-    requirements = re.findall(r"(github\.com/ad3n/v8go/deps/\w+)\s+(v\S+)",
-                              (ROOT / "go.mod").read_text())
-    platforms = sorted(ROOT.glob("deps/*_*/go.mod"))
-    required = {module for module, _ in requirements}
-    expected = {ROOT_MODULE + "/" + path.parent.relative_to(ROOT).as_posix() for path in platforms}
-    if required != expected or len(requirements) != len(platforms) or not requirements:
-        raise ValueError("every platform module must be required by the root module")
-    for module, version in requirements:
-        write_module(proxy, module, version, ROOT / module.removeprefix(ROOT_MODULE + "/"))
     root_files = list(module_files(ROOT))
     if any(re.match(r"deps/\w+_(amd64|arm64)/", name) for name, _ in root_files):
         raise ValueError("platform archives leaked into the root module")
+    if any(path.suffix in (".a", ".lib", ".so", ".dylib") for _, path in root_files):
+        raise ValueError("native binaries must not be distributed in the Go module")
     write_module(proxy, ROOT_MODULE, root_version, ROOT)
 
 
@@ -115,7 +108,7 @@ func main() {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--proxy-dir", type=Path)
-    parser.add_argument("--root-version", default="v1.1.5")
+    parser.add_argument("--root-version", default="v0.0.0")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="v8go-modulecheck-") as temporary:
         work = Path(temporary)

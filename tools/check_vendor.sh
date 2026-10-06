@@ -25,10 +25,6 @@ require github.com/ad3n/v8go v0.0.0
 
 replace github.com/ad3n/v8go => $src
 EOF
-for dir in "$src"/deps/*_*/; do
-    [ -f "$dir/go.mod" ] || continue
-    go mod edit "-replace=github.com/ad3n/v8go/deps/$(basename "$dir")=$dir"
-done
 cat >main.go <<'EOF'
 package main
 
@@ -60,17 +56,6 @@ for f in deps/include/v8-template.h deps/include/cppgc/internal/api-constants.h 
 		echo "$f was not vendored" >&2
 		exit 1
 	fi
-done
-
-for dir in "$src"/deps/*_*/; do
-	[ -f "$dir/libmanifest" ] || continue
-	for archive in "$dir"/*.a "$dir"/*.lib; do
-		[ -f "$archive" ] || continue
-		if [ ! -f "vendor/github.com/ad3n/v8go/deps/$(basename "$dir")/$(basename "$archive")" ]; then
-			echo "$archive was not vendored" >&2
-			exit 1
-		fi
-	done
 done
 
 out=$(go run -mod=vendor .)

@@ -1,0 +1,44 @@
+name: Set Up External V8 Libraries
+description: Build or restore native libraries outside the source module.
+runs:
+  using: composite
+  steps:
+  - name: Resolve native target
+    id: target
+    shell: bash
+    run: |
+      echo "platform=$(go env GOOS)_$(go env GOARCH)" >>"$GITHUB_OUTPUT"
+      echo "v8=$(cat deps/v8_hash)" >>"$GITHUB_OUTPUT"
+      echo "depot=$(git rev-parse HEAD:deps/depot_tools)" >>"$GITHUB_OUTPUT"
+  - name: Restore native libraries
+    id: cache
+    uses: actions/cache@v6
+    with:
+      path: .build/native
+      key: external-v8:${{ runner.os }}:${{ steps.target.outputs.platform }}:${{ steps.target.outputs.v8 }}:${{ steps.target.outputs.depot }}:${{ hashFiles('deps/build.py', 'patches/*.patch', 'cgo_*.go') }}
+  - name: Check out native sources
+    if: steps.cache.outputs.cache-hit != 'true'
+    shell: bash
+    run: |
+      git submodule update --init --depth=1 deps/v8 deps/depot_tools
+      git -C deps/v8 fetch --depth=1 origin "${{ steps.target.outputs.v8 }}"
+      git -C deps/v8 checkout "${{ steps.target.outputs.v8 }}"
+      if [ -d patches ]; then
+        for patch in patches/*.patch; do
+          [ -f "$patch" ] || continue
+          patch -p1 -i "$patch"
+        done
+      fi
+  - uses: ./.github/actions/checkout-depot-tools
+    if: steps.cache.outputs.cache-hit != 'true'
+    with:
+      hash: ${{ steps.target.outputs.depot }}
+  - name: Build native libraries
+    if: steps.cache.outputs.cache-hit != 'true'
+    shell: bash
+    env:
+      DEPOT_TOOLS_UPDATE: '0'
+    run: python3 deps/build.py --verbose --os "$(go env GOOS)" --arch "$(go env GOARCH)" --output-dir "$GITHUB_WORKSPACE/.build/native"
+  - name: Configure native library path
+    shell: bash
+    run: echo "CGO_LDFLAGS=-L$GITHUB_WORKSPACE/.build/native/${{ steps.target.outputs.platform }} ${CGO_LDFLAGS:-}" >>"$GITHUB_ENV"
