@@ -1,9 +1,8 @@
 # Execute JavaScript from Go
 
-<a href="https://github.com/ad3n/v8go/releases"><img src="https://img.shields.io/github/v/release/tommie/v8go" alt="Github release"></a>
-[![Go Report Card](https://goreportcard.com/badge/github.com/ad3n/v8go)](https://goreportcard.com/report/github.com/ad3n/v8go)
-[![Go Reference](https://pkg.go.dev/badge/github.com/ad3n/v8go.svg)](https://pkg.go.dev/github.com/ad3n/v8go)
-[![Test](https://github.com/ad3n/v8go/actions/workflows/test.yml/badge.svg)](https://github.com/ad3n/v8go/actions/workflows/test.yml)
+<a href="https://github.com/tommie/v8go/releases"><img src="https://img.shields.io/github/v/release/tommie/v8go" alt="Github release"></a>
+[![Go Reference](https://pkg.go.dev/badge/github.com/tommie/v8go.svg)](https://pkg.go.dev/github.com/tommie/v8go)
+[![Test](https://github.com/tommie/v8go/actions/workflows/test.yml/badge.svg)](https://github.com/tommie/v8go/actions/workflows/test.yml)
 
 <img src="gopher.jpg" width="200px" alt="V8 Gopher based on original artwork from the amazing Renee French" style="float:right" />
 
@@ -42,6 +41,24 @@ CC=clang-21 CXX=clang++-21 CGO_CXXFLAGS=-nostdinc++ go build
 
 Note that these environment variables apply to all cgo packages in the
 build.
+
+### Windows
+
+Windows amd64 is supported with Go 1.27 or newer. V8 is built with the
+MSVC ABI, so v8go must also be compiled with an MSVC-target clang,
+which is what [LLVM's Windows release](https://releases.llvm.org/) is,
+not MinGW. It must link with LLD, and the Microsoft C runtime and
+Windows SDK libraries must be installed, e.g. with the Visual Studio
+Build Tools:
+
+```sh
+CC="clang -fuse-ld=lld" CXX="clang++ -fuse-ld=lld" CGO_CXXFLAGS=-nostdinc++ go build
+```
+
+`-fuse-ld=lld` must be in `CC`, or in `-ldflags=-extldflags=-fuse-ld=lld`,
+for Go to detect LLD. Otherwise, it passes flags only GNU ld accepts.
+Since Go splits `CC` on spaces, clang must be in `PATH`, rather than
+given as a full path.
 
 ## Usage
 
@@ -186,20 +203,23 @@ val, err = ctx.RunScript(`
 
 ### CPU Profiler
 
+V8 only samples the OS thread that started profiling.
+`CPUProfiler.Do` keeps the profiled function on that thread.
+When using `StartProfiling` and `StopProfiling` directly, call `runtime.LockOSThread` first, and execute JavaScript on the same goroutine.
+Otherwise, samples are silently missing from the profile.
+
 ```go
 func createProfile() {
 	iso := v8.NewIsolate()
 	ctx := v8.NewContext(iso)
 	cpuProfiler := v8.NewCPUProfiler(iso)
 
-	cpuProfiler.StartProfiling("my-profile")
-
-	ctx.RunScript(profileScript, "script.js") # this script is defined in cpuprofiler_test.go
-	val, _ := ctx.Global().Get("start")
-	fn, _ := val.AsFunction()
-	fn.Call(ctx.Global())
-
-	cpuProfile := cpuProfiler.StopProfiling("my-profile")
+	cpuProfile := cpuProfiler.Do("my-profile", func() {
+		ctx.RunScript(profileScript, "script.js") # this script is defined in cpuprofiler_test.go
+		val, _ := ctx.Global().Get("start")
+		fn, _ := val.AsFunction()
+		fn.Call(ctx.Global())
+	})
 
 	printTree("", cpuProfile.GetTopDownRoot()) # helper function to print the profile
 }
@@ -351,8 +371,8 @@ The `-ldflags=-compressdwarf=false` is currently (with clang 13) needed to get l
 
 ### Formatting
 
-Go has `go fmt`, C has `clang-format`. Any changes to the `v8go.h|cc` should be formated with `clang-format` with the
-"Chromium" Coding style. This can be done easily by running the `go generate` command.
+Go has `go fmt`, C has `clang-format`. Any changes to the `*.h` and `*.cc` files should be formatted with `clang-format`
+with the "Chromium" Coding style, as configured in `.clang-format`. This can be done easily by running the `go generate` command.
 
 `brew install clang-format` to install on macOS.
 
