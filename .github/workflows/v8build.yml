@@ -306,12 +306,8 @@ jobs:
 
         echo "V8 Commit: $(<deps/v8_hash)" >>"$GITHUB_STEP_SUMMARY"
         echo "V8 Version: ${{ steps.update_v8.outputs.latest_v8_version }}" >>"$GITHUB_STEP_SUMMARY"
-<<<<<<< HEAD
-        echo "Commit: https://github.com/ad3n/v8go/commit/$commit_sha" >>"$GITHUB_STEP_SUMMARY"
-=======
         echo "depot_tools Commit: ${{ needs.build_common.outputs.depot_tools_hash }}" >>"$GITHUB_STEP_SUMMARY"
         echo "Commit: https://github.com/tommie/v8go/commit/$commit_sha" >>"$GITHUB_STEP_SUMMARY"
->>>>>>> 5cc0d13d809a99e2b93589cfdefae2482d4d5ef6
 
         echo "sha=$commit_sha" >>"$GITHUB_OUTPUT"
 
