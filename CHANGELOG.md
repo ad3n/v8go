@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep native V8 archives outside the repository and supply their directory through `CGO_LDFLAGS`; retain bundled headers and remove platform module dependencies.
 - Remove Windows and Android native build targets and platform modules; supported native builds are Linux and macOS on amd64 and arm64.
 - Document that `CPUProfiler.StartProfiling` requires JavaScript to execute on the calling OS thread. V8 only samples that thread, so the profile silently missed samples when Go moved the goroutine to another thread.
+- Auto-bumped V8 to 15.5.35.20.
 
 ### Fixed
 - Validate heap snapshot targets and writer counts, handle failed native snapshots, and complete native cleanup before propagating writer panics.
