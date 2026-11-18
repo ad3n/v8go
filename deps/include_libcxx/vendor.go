@@ -35,6 +35,7 @@ import (
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__mutex"
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__new"
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__numeric"
+	_ "github.com/ad3n/v8go/deps/include_libcxx/__optional"
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__ostream"
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__pstl"
 	_ "github.com/ad3n/v8go/deps/include_libcxx/__random"
